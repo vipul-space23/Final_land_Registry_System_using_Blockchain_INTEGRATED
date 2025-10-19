@@ -32,7 +32,7 @@ export default function VerifiedUsers() {
 
       const result = await response.json();
       if (result.success) {
-        const owners = result.data.filter(user => user.role && user.role.toLowerCase() === 'owner');
+        const owners = result.data.filter(user => user.role && user.role.toLowerCase() === 'owner' || user.role.toLowerCase() === 'buyer');
         setUsers(owners);
       } else {
         setError(result.message || 'Failed to fetch users');
