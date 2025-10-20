@@ -1,26 +1,197 @@
+// import { useState, useEffect } from 'react';
+// import { User, Loader2, AlertCircle, Mail } from 'lucide-react';
+
+// export default function VerifiedUsers() {
+//   const [users, setUsers] = useState([]);
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState('');
+
+//   useEffect(() => {
+//     fetchVerifiedUsers();
+//   }, []);
+
+//   const fetchVerifiedUsers = async () => {
+//     setLoading(true);
+//     setError('');
+//     try {
+//       const token = localStorage.getItem('token');
+//       if (!token) throw new Error('Authentication token not found');
+
+//       const response = await fetch('http://localhost:5000/api/verifier/verified-users', {
+//         method: 'GET',
+//         headers: {
+//           Authorization: `Bearer ${token}`,
+//           'Content-Type': 'application/json'
+//         }
+//       });
+
+//       if (!response.ok) {
+//         const errorText = await response.text();
+//         throw new Error(`Failed to fetch verified users: ${response.status} - ${errorText}`);
+//       }
+
+//       const result = await response.json();
+//       if (result.success) {
+//         const owners = result.data.filter(user => user.role && user.role.toLowerCase() === 'owner' || user.role.toLowerCase() === 'buyer');
+//         setUsers(owners);
+//       } else {
+//         setError(result.message || 'Failed to fetch users');
+//       }
+//     } catch (err) {
+//       console.error('Fetch error:', err);
+//       setError(err.message || 'Failed to fetch verified users. Please try again.');
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   if (loading) {
+//     return (
+//       <div className="flex items-center justify-center min-h-[400px]">
+//         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+//         <span className="ml-2 text-gray-600">Loading verified owners...</span>
+//       </div>
+//     );
+//   }
+
+//   if (error) {
+//     return (
+//       <div className="flex flex-col items-center justify-center min-h-[400px] text-red-600">
+//         <AlertCircle className="h-6 w-6 mb-2" />
+//         <p className="text-center mb-4">{error}</p>
+//         <button
+//           onClick={fetchVerifiedUsers}
+//           className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+//         >
+//           Try Again
+//         </button>
+//       </div>
+//     );
+//   }
+
+//   return (
+//     <div className="max-w-6xl mx-auto">
+//       <div className="mb-6">
+//         <h1 className="text-2xl font-bold text-gray-900">Verified Owners</h1>
+//         <p className="text-gray-600 mt-1">Total verified owners: {users.length}</p>
+//       </div>
+
+//       {users.length === 0 ? (
+//         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+//           <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+//           <p className="text-gray-500 text-lg">No verified owners found.</p>
+//           <p className="text-gray-400 text-sm mt-2">
+//             Verified owners will appear here once they complete verification.
+//           </p>
+//         </div>
+//       ) : (
+//         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+//           <div className="overflow-x-auto">
+//             <table className="min-w-full divide-y divide-gray-200">
+//               <thead className="bg-gray-50">
+//                 <tr>
+//                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+//                     Name
+//                   </th>
+//                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+//                     Email
+//                   </th>
+//                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+//                     Role
+//                   </th>
+//                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+//                     Wallet Address
+//                   </th>
+//                 </tr>
+//               </thead>
+//               <tbody className="bg-white divide-y divide-gray-200">
+//                 {users.map((user, index) => (
+//                   <tr key={user._id || index} className="hover:bg-gray-50">
+//                     <td className="px-6 py-4 whitespace-nowrap">
+//                       <div className="flex items-center">
+//                         <div className="flex-shrink-0 h-10 w-10">
+//                           <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+//                             <User className="h-5 w-5 text-blue-600" />
+//                           </div>
+//                         </div>
+//                         <div className="ml-4">
+//                           <div className="text-sm font-medium text-gray-900">
+//                             {user.name || 'N/A'}
+//                           </div>
+//                           <div className="text-sm text-gray-500">
+//                             ID: {user._id ? user._id.slice(-8) : 'Unknown'}
+//                           </div>
+//                         </div>
+//                       </div>
+//                     </td>
+//                     <td className="px-6 py-4 whitespace-nowrap">
+//                       <div className="flex items-center text-sm text-gray-900">
+//                         <Mail className="h-4 w-4 text-gray-400 mr-2" />
+//                         {user.email || 'N/A'}
+//                       </div>
+//                     </td> 
+//                     <td className="px-6 py-4 whitespace-nowrap">
+//                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+//                         {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'N/A'}
+//                       </span>
+//                     </td>
+//                     <td className="px-6 py-4 whitespace-nowrap">
+//                       <span className="text-sm text-gray-900 font-mono">{user.walletAddress || 'N/A'}</span>
+//                     </td>
+//                   </tr>
+//                 ))}
+//               </tbody>
+//             </table>
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+
+
+
+
+
+
+
+
+
+
+
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext'; // <-- Import useAuth
 import { User, Loader2, AlertCircle, Mail } from 'lucide-react';
 
 export default function VerifiedUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { user } = useAuth(); // <-- Use the Auth context
 
   useEffect(() => {
-    fetchVerifiedUsers();
-  }, []);
+    // Check for user and token from context, just like the other page
+    if (user && user.token) {
+        fetchVerifiedUsers(user.token);
+    } else {
+        setLoading(false);
+        //setError('You must be logged in to view this page.');
+    }
+  }, [user]); // Re-run when the user object changes
 
-  const fetchVerifiedUsers = async () => {
+  const fetchVerifiedUsers = async (token) => { // Pass token in
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('Authentication token not found');
+      // const token = localStorage.getItem('token'); // <-- REMOVED
+      if (!token) throw new Error('Authentication token not found'); // This check is still good
 
       const response = await fetch('http://localhost:5000/api/verifier/verified-users', {
+        // credentials: 'include', // <-- REMOVED
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`, // <-- This is now correct
           'Content-Type': 'application/json'
         }
       });
@@ -32,8 +203,10 @@ export default function VerifiedUsers() {
 
       const result = await response.json();
       if (result.success) {
-        const owners = result.data.filter(user => user.role && user.role.toLowerCase() === 'owner' || user.role.toLowerCase() === 'buyer');
-        setUsers(owners);
+        const filteredUsers = result.data.filter(user => 
+          user.role && (user.role.toLowerCase() === 'owner' || user.role.toLowerCase() === 'buyer')
+        );
+        setUsers(filteredUsers);
       } else {
         setError(result.message || 'Failed to fetch users');
       }
@@ -49,7 +222,7 @@ export default function VerifiedUsers() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <span className="ml-2 text-gray-600">Loading verified owners...</span>
+        <span className="ml-2 text-gray-600">Loading verified users...</span>
       </div>
     );
   }
@@ -60,7 +233,7 @@ export default function VerifiedUsers() {
         <AlertCircle className="h-6 w-6 mb-2" />
         <p className="text-center mb-4">{error}</p>
         <button
-          onClick={fetchVerifiedUsers}
+          onClick={() => fetchVerifiedUsers(user.token)} // Pass token on retry
           className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
         >
           Try Again
@@ -72,16 +245,16 @@ export default function VerifiedUsers() {
   return (
     <div className="max-w-6xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Verified Owners</h1>
-        <p className="text-gray-600 mt-1">Total verified owners: {users.length}</p>
+        <h1 className="text-2xl font-bold text-gray-900">Verified Users</h1>
+        <p className="text-gray-600 mt-1">Total verified users: {users.length}</p>
       </div>
 
-      {users.length === 0 ? (
+      {users.length === 0 && !loading ? ( // Added !loading check
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
           <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg">No verified owners found.</p>
+          <p className="text-gray-500 text-lg">No verified users found.</p>
           <p className="text-gray-400 text-sm mt-2">
-            Verified owners will appear here once they complete verification.
+            Verified users will appear here once they complete verification.
           </p>
         </div>
       ) : (
@@ -107,7 +280,7 @@ export default function VerifiedUsers() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((user, index) => (
                   <tr key={user._id || index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowPrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
                           <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
@@ -129,9 +302,13 @@ export default function VerifiedUsers() {
                         <Mail className="h-4 w-4 text-gray-400 mr-2" />
                         {user.email || 'N/A'}
                       </div>
-                    </td>
+                    </td> 
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        user.role && user.role.toLowerCase() === 'owner' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-green-100 text-green-800'
+                      }`}>
                         {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'N/A'}
                       </span>
                     </td>

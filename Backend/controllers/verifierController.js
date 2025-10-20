@@ -114,6 +114,18 @@
 //     }
 // };
 
+
+
+
+
+
+
+
+
+
+
+
+
 import User from '../models/userModel.js';
 import Property from '../models/propertyModel.js'; // Make sure you have a property model
 import { sendVerificationSuccessEmail, sendVerificationRejectionEmail } from '../utils/emailService.js';

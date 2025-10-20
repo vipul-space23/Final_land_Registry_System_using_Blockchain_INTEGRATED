@@ -67,7 +67,7 @@ const VerifierDashboardPage = () => {
                 <div className="bg-white p-8 rounded-lg shadow-md">
                     <h2 className="text-2xl font-bold text-gray-800 mb-4">Welcome to the Dashboard</h2>
                     <p className="text-gray-600">Please select a task from the navigation bar, such as "Verify User", to begin.</p>
-                </div>
+                </div>  
             </div>
         </div>
     );
