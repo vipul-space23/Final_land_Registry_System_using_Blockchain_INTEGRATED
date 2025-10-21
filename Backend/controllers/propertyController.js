@@ -1,12 +1,11 @@
+import asyncHandler from 'express-async-handler';
 import { ethers } from 'ethers';
 import FormData from 'form-data';
 import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
 import fse from 'fs-extra';
-import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
 import User from '../models/userModel.js';
 import Property from '../models/propertyModel.js';
 
@@ -20,7 +19,7 @@ const marketplaceABIFile = fs.readFileSync(path.join(__dirname, '../abis/MarketP
 const marketplaceABI = JSON.parse(marketplaceABIFile).abi;
 
 // --- Admin Registration Workflow ---
-export const preparePropertyRegistration = async (req, res) => {
+export const preparePropertyRegistration = asyncHandler(async (req, res) => {
   const { propertyId } = req.body;
   const tempDir = path.join(__dirname, '../uploads', propertyId);
 
@@ -122,247 +121,116 @@ export const preparePropertyRegistration = async (req, res) => {
     }
     res.status(500).json({ success: false, message: 'Internal server error: ' + error.message });
   }
-};
+});
 
-
-
-export const finalizePropertyRegistration = async (req, res) => {
+export const finalizePropertyRegistration = asyncHandler(async (req, res) => {
   const { transactionHash, propertyData } = req.body;
 
   if (!transactionHash || !propertyData) {
     return res.status(400).json({ success: false, message: 'Missing transactionHash or propertyData.' });
   }
 
-  try {
-    const provider = new ethers.JsonRpcProvider(process.env.GANACHE_URL || process.env.RPC_URL);
-    
-    console.log('Waiting for transaction:', transactionHash);
-    const receipt = await provider.waitForTransaction(transactionHash);
-    
-    console.log('Transaction receipt:', JSON.stringify(receipt, null, 2));
-    
-    if (receipt.status === 0) {
-      throw new Error('Blockchain transaction failed.');
-    }
-
-    let tokenId;
-    const contractInterface = new ethers.Interface(PropertyTitleABI.abi);
-    
-    console.log('Looking for TitleMinted event in logs...');
-    console.log('Total logs:', receipt.logs.length);
-    
-    for (const log of receipt.logs) {
-      console.log('Processing log:', log);
-      try {
-        const parsedLog = contractInterface.parseLog({
-          topics: log.topics,
-          data: log.data
-        });
-        
-        console.log('Parsed log:', parsedLog);
-        
-        if (parsedLog && parsedLog.name === 'TitleMinted') {
-          tokenId = parsedLog.args.tokenId.toString();
-          console.log('Found TitleMinted event with tokenId:', tokenId);
-          break;
-        }
-      } catch (e) {
-        console.log('Could not parse log:', e.message);
-      }
-    }
-
-    if (!tokenId) {
-      console.error('Available events in ABI:', PropertyTitleABI.abi.filter(item => item.type === 'event'));
-      throw new Error('Could not find TitleMinted event in the transaction receipt.');
-    }
-
-    const propertyOwner = await User.findOne({ walletAddress: propertyData.ownerWalletAddress });
-    if (!propertyOwner) {
-      return res.status(404).json({ success: false, message: 'Property owner not found.' });
-    }
-
-    const newProperty = new Property({
-      tokenId,
-      transactionHash,
-      surveyNumber: propertyData.surveyNumber,
-      propertyId: propertyData.propertyId,
-      propertyAddress: propertyData.propertyAddress,
-      district: propertyData.district,
-      area: parseInt(propertyData.area),
-      ownerWalletAddress: propertyData.ownerWalletAddress,
-      ownerName: propertyData.ownerName,
-      documentHashes: propertyData.documentHashes,
-      status: 'pending',
-      owner: propertyOwner._id,
-      verifier: req.user._id,
-    });
-
-    await newProperty.save();
-
-    res.status(201).json({
-      success: true,
-      message: 'Property registration finalized and saved to database!',
-      data: { tokenId, propertyId: propertyData.propertyId, transactionHash }
-    });
-
-  } catch (error) {
-    console.error('Error finalizing property registration:', error);
-    res.status(500).json({ success: false, message: 'Internal server error: ' + error.message });
+  const provider = new ethers.JsonRpcProvider(process.env.GANACHE_URL || process.env.RPC_URL);
+  
+  const receipt = await provider.waitForTransaction(transactionHash);
+  
+  if (receipt.status === 0) {
+    throw new Error('Blockchain transaction failed.');
   }
+
+  let tokenId;
+  const contractInterface = new ethers.Interface(PropertyTitleABI.abi);
+  
   for (const log of receipt.logs) {
-  try {
-    const parsedLog = contractInterface.parseLog({
-      topics: log.topics,
-      data: log.data
-    });
-    
-    console.log('Parsed log:', parsedLog);
-    
-    // Look for Transfer event (from ERC721)
-    if (parsedLog && parsedLog.name === 'Transfer') {
-      // Transfer event: Transfer(address from, address to, uint256 tokenId)
-      // For minting: from = 0x0000000000000000000000000000000000000000
-      const from = parsedLog.args.from;
-      const to = parsedLog.args.to;
-      const transferredTokenId = parsedLog.args.tokenId;
+    try {
+      const parsedLog = contractInterface.parseLog({
+        topics: [...log.topics],
+        data: log.data
+      });
       
-      // Check if it's a mint (from zero address)
-      if (from === '0x0000000000000000000000000000000000000000') {
-        tokenId = transferredTokenId.toString();
-        console.log('Found Transfer (mint) event with tokenId:', tokenId);
+      if (parsedLog && parsedLog.name === 'TitleMinted') {
+        tokenId = parsedLog.args.tokenId.toString();
         break;
       }
+    } catch (e) {
+      // Ignore logs that don't match the ABI
     }
-  } catch (e) {
-    console.log('Could not parse log:', e.message);
   }
-}
-};
-// export const finalizePropertyRegistration = async (req, res) => {
-//   const { transactionHash, propertyData } = req.body;
 
-//   if (!transactionHash || !propertyData) {
-//     return res.status(400).json({ success: false, message: 'Missing transactionHash or propertyData.' });
-//   }
+  if (!tokenId) {
+    throw new Error('Could not find TitleMinted event in the transaction receipt.');
+  }
 
-//   try {
-//     const provider = new ethers.JsonRpcProvider(process.env.GANACHE_URL);
-//     const receipt = await provider.waitForTransaction(transactionHash);
-//     if (receipt.status === 0) {
-//       throw new Error('Blockchain transaction failed.');
-//     }
+  const propertyOwner = await User.findOne({ walletAddress: propertyData.ownerWalletAddress });
+  if (!propertyOwner) {
+    return res.status(404).json({ success: false, message: 'Property owner not found.' });
+  }
 
-//     let tokenId;
-//     const contractInterface = new ethers.Interface(PropertyTitleABI.abi);
-//     for (const log of receipt.logs) {
-//       try {
-//         const parsedLog = contractInterface.parseLog(log);
-//         if (parsedLog && parsedLog.name === 'TitleMinted') {
-//           tokenId = parsedLog.args.tokenId.toString();
-//           break;
-//         }
-//       } catch (e) { /* Ignore logs from other contracts */ }
-//     }
+  const newProperty = new Property({
+    tokenId,
+    transactionHash,
+    surveyNumber: propertyData.surveyNumber,
+    propertyId: propertyData.propertyId, // This should be propertyPID
+    propertyAddress: propertyData.propertyAddress,
+    district: propertyData.district,
+    area: parseInt(propertyData.area),
+    ownerWalletAddress: propertyData.ownerWalletAddress,
+    ownerName: propertyData.ownerName,
+    documentHashes: propertyData.documentHashes,
+    status: 'pending',
+    owner: propertyOwner._id,
+    verifier: req.user._id,
+  });
 
-//     if (!tokenId) {
-//       throw new Error('Could not find TitleMinted event in the transaction receipt.');
-//     }
+  await newProperty.save();
 
-//     const propertyOwner = await User.findOne({ walletAddress: propertyData.ownerWalletAddress });
-//     if (!propertyOwner) {
-//       return res.status(404).json({ success: false, message: 'Property owner not found.' });
-//     }
-
-//     const newProperty = new Property({
-//       tokenId,
-//       transactionHash,
-//       surveyNumber: propertyData.surveyNumber,
-//       propertyId: propertyData.propertyId,
-//       propertyAddress: propertyData.propertyAddress,
-//       district: propertyData.district,        // ✅ FIXED: Added district
-//       area: parseInt(propertyData.area),
-//       ownerWalletAddress: propertyData.ownerWalletAddress,
-//       ownerName: propertyData.ownerName,
-//       documentHashes: propertyData.documentHashes,
-//       status: 'pending',
-//       owner: propertyOwner._id,
-//       verifier: req.user._id,
-//     });
-
-//     await newProperty.save();
-
-//     res.status(201).json({
-//       success: true,
-//       message: 'Property registration finalized and saved to database!',
-//       data: { tokenId, propertyId: propertyData.propertyId, transactionHash }
-//     });
-
-//   } catch (error) {
-//     console.error('Error finalizing property registration:', error);
-//     res.status(500).json({ success: false, message: 'Internal server error: ' + error.message });
-//   }
-// };
-
+  res.status(201).json({
+    success: true,
+    message: 'Property registration finalized and saved to database!',
+    data: { tokenId, propertyId: propertyData.propertyId, transactionHash }
+  });
+});
 
 // --- User Document Verification Workflow ---
-// --- User Document Verification Workflow ---
-// --- User Document Verification Workflow ---
-export const verifyPropertyDocuments = async (req, res) => {
+export const verifyPropertyDocuments = asyncHandler(async (req, res) => {
   const tempDir = path.join(__dirname, '../Uploads', `verify-${Date.now()}`);
   try {
     const { district, surveyNumber } = req.body;
     const files = req.files;
     const requesterAddress = req.body.walletAddress;
 
-    // Log incoming data for debugging
-    console.log('Received data:', { district, surveyNumber, files: Object.keys(files || {}) });
-    console.log('req.files:', JSON.stringify(files, null, 2));
-
-    // 1. Validate inputs
     if (!district || !surveyNumber) {
-      console.log('Missing text fields:', { district, surveyNumber });
       return res.status(400).json({ message: 'District and survey number are required.' });
     }
     if (!files || !files.motherDeed || !files.motherDeed[0] || !files.encumbranceCertificate || !files.encumbranceCertificate[0]) {
-      console.log('Missing or invalid files:', files);
       return res.status(400).json({ message: 'Both Mother Deed and Encumbrance Certificate files are required.' });
     }
 
-    // 2. Find the property
     const property = await Property.findOne({ district, surveyNumber });
-    console.log('Found property:', property ? property : 'No property found');
     if (!property) {
       return res.status(404).json({ message: 'Property not found with the provided district and survey number.' });
     }
 
-    // 3. Check if already verified
     if (property.status === 'verified') {
       return res.status(400).json({ message: 'This property has already been verified.' });
     }
     if (property.ownerWalletAddress.toLowerCase() !== requesterAddress.toLowerCase()) {
-      console.log(property.ownerWalletAddress, requesterAddress );
-      
       return res.status(403).json({ message: 'Forbidden: You are not the owner of this property.' });
     }
 
-    // 4. Validate documentHashes
     if (!property.documentHashes || !Array.isArray(property.documentHashes) || property.documentHashes.length < 2) {
-      console.log('Invalid documentHashes:', property.documentHashes);
       return res.status(500).json({ message: 'Invalid document hashes in database.' });
     }
 
-    // 5. Save uploaded files temporarily from buffers
     fse.ensureDirSync(tempDir);
     const motherDeedFile = files.motherDeed[0];
     const encumbranceCertFile = files.encumbranceCertificate[0];
     const newMotherDeedPath = path.join(tempDir, 'motherDeed.pdf');
     const newEncumbrancePath = path.join(tempDir, 'encumbrance.pdf');
     
-    // Write buffers to temporary files
     fs.writeFileSync(newMotherDeedPath, motherDeedFile.buffer);
     fs.writeFileSync(newEncumbrancePath, encumbranceCertFile.buffer);
 
-    // 6. Upload files to Pinata and get IPFS CIDs
     const uploadFile = async (filePath, docType) => {
       const fileStream = fs.createReadStream(filePath);
       const formData = new FormData();
@@ -400,13 +268,6 @@ export const verifyPropertyDocuments = async (req, res) => {
       }
     }
 
-    // Log hashes for debugging
-    console.log('Uploaded Mother Deed Hash:', uploadedMotherDeedHash);
-    console.log('Uploaded Encumbrance Cert Hash:', uploadedEncumbranceCertHash);
-    console.log('Stored Mother Deed Hash:', property.documentHashes[0]);
-    console.log('Stored Encumbrance Cert Hash:', property.documentHashes[1]);
-
-    // 7. Compare IPFS CIDs
     if (uploadedMotherDeedHash !== property.documentHashes[0]) {
       return res.status(400).json({ message: 'Verification failed. Mother Deed does not match the official record.' });
     }
@@ -414,10 +275,8 @@ export const verifyPropertyDocuments = async (req, res) => {
       return res.status(400).json({ message: 'Verification failed. Encumbrance Certificate does not match the official record.' });
     }
 
-    // 8. Success: Update property status
     property.status = 'verified';
     await property.save();
-    console.log('Property verified:', property._id);
     return res.status(200).json({ success: true, message: 'Verification successful! The land is now confirmed.' });
   } catch (error) {
     console.error('Error during document verification:', error);
@@ -426,16 +285,100 @@ export const verifyPropertyDocuments = async (req, res) => {
     }
     return res.status(500).json({ message: `Internal server error: ${error.message}` });
   }
-};
-// --- User Property Listing Workflow (The Corrected Functions) ---
+});
+
+// ... (keep all your other controller functions like preparePropertyRegistration, etc.)
 
 /**
- * @desc    Step 1: Prepare the 'approve' transaction for listing a property.
- * @route   POST /api/properties/:id/prepare-listing
+ * @desc    List or EDIT a verified property for sale (Simple version)
+ * @route   PUT /api/properties/list/:id
  * @access  Private (Owner)
  */
-export const prepareListingForSale = async (req, res) => {
-  try {
+export const listPropertySimple = asyncHandler(async (req, res) => {
+  // 1. Get price from the form body
+  const { price } = req.body;
+
+  // --- MODIFIED: Image is now optional ---
+  const imagePath = req.file ? req.file.path : null;
+
+  // 3. Validation
+  if (!price) {
+    res.status(400);
+    throw new Error('Price is required');
+  }
+
+  const numericPrice = Number(price);
+  if (isNaN(numericPrice) || numericPrice <= 0) {
+    res.status(400);
+    throw new Error('A valid, positive price is required.');
+  }
+
+  // 4. Find the property
+  const property = await Property.findById(req.params.id);
+
+  // 5. Check ownership
+  if (!property || property.owner.toString() !== req.user._id.toString()) {
+    res.status(404);
+    throw new Error('Property not found or user not authorized');
+  }
+
+  // 6. Check status (can be 'verified' OR 'listed_for_sale')
+  if (property.status !== 'verified' && property.status !== 'listed_for_sale') {
+    res.status(400);
+    throw new Error('Only verified or listed properties can be edited.');
+  }
+
+  // 7. Update the property
+  property.price = numericPrice;
+  property.status = 'listed_for_sale';
+  
+  // --- MODIFIED: Only update image if a new one was uploaded ---
+  if (imagePath) {
+    property.image = imagePath; 
+  }
+  
+  const updatedProperty = await property.save();
+  
+  res.status(200).json(updatedProperty);
+});
+
+
+// --- NEW FUNCTION ---
+/**
+ * @desc    Withdraw a property from the marketplace
+ * @route   PUT /api/properties/withdraw/:id
+ * @access  Private (Owner)
+ */
+export const withdrawListing = asyncHandler(async (req, res) => {
+  // 1. Find the property
+  const property = await Property.findById(req.params.id);
+
+  // 2. Check ownership
+  if (!property || property.owner.toString() !== req.user._id.toString()) {
+    res.status(404);
+    throw new Error('Property not found or user not authorized');
+  }
+
+  // 3. Check status
+  if (property.status !== 'listed_for_sale') {
+    res.status(400);
+    throw new Error('Only listed properties can be withdrawn.');
+  }
+
+  // 4. Update status back to 'verified'
+  property.status = 'verified';
+  // You could also reset the price if you want
+  // property.price = 0; 
+  
+  const updatedProperty = await property.save();
+  
+  res.status(200).json(updatedProperty);
+});
+
+// ... (keep all your other controller functions like getMyProperties, etc.)
+
+// --- User Property Listing Workflow (Complex Blockchain version) ---
+export const prepareListingForSale = asyncHandler(async (req, res) => {
     const property = await Property.findById(req.params.id);
     if (!property) return res.status(404).json({ message: 'Property not found' });
 
@@ -449,12 +392,12 @@ export const prepareListingForSale = async (req, res) => {
     const contractInterface = new ethers.Interface(PropertyTitleABI.abi);
 
     const encodedFunctionCall = contractInterface.encodeFunctionData('approve', [
-      process.env.MARKETPLACE_ADDRESS, // Marketplace contract
+      process.env.MARKETPLACE_ADDRESS,
       property.tokenId,
     ]);
 
     const transactionData = {
-      to: process.env.PROPERTYTITLE_ADDRESS, // NFT contract
+      to: process.env.PROPERTYTITLE_ADDRESS,
       data: encodedFunctionCall,
     };
 
@@ -463,19 +406,9 @@ export const prepareListingForSale = async (req, res) => {
       message: 'Approval transaction prepared. Please sign with your wallet.',
       transactionData,
     });
-  } catch (error) {
-    console.error('Error preparing listing:', error.message);
-    res.status(500).json({ message: 'Server error while preparing listing.' });
-  }
-};
+});
 
-/**
- * @desc    Step 2: Finalize the listing after transaction is confirmed
- * @route   POST /api/properties/:id/finalize-listing
- * @access  Private (Owner)
- */
-export const finalizeListingForSale = async (req, res) => {
-  try {
+export const finalizeListingForSale = asyncHandler(async (req, res) => {
     const { approveTxHash, listTxHash, price } = req.body;
     if (!approveTxHash || !listTxHash || !price)
       return res.status(400).json({ message: 'Transaction hashes and price are required' });
@@ -491,17 +424,14 @@ export const finalizeListingForSale = async (req, res) => {
 
     const provider = new ethers.JsonRpcProvider(process.env.GANACHE_URL);
 
-    // Verify approval transaction
     const approveReceipt = await provider.waitForTransaction(approveTxHash);
     if (!approveReceipt || approveReceipt.status === 0)
       throw new Error('Approval transaction failed');
 
-    // Verify listing transaction
     const listReceipt = await provider.waitForTransaction(listTxHash);
     if (!listReceipt || listReceipt.status === 0)
       throw new Error('Listing transaction failed');
 
-    // Update property in DB
     property.status = 'listed_for_sale';
     property.price = Number(price);
     await property.save();
@@ -511,98 +441,104 @@ export const finalizeListingForSale = async (req, res) => {
       message: 'Property successfully listed for sale!',
       data: property,
     });
-  } catch (error) {
-    console.error('Error finalizing listing:', error.message);
-    res.status(500).json({ message: 'Server error while finalizing listing.' });
+});
+
+export const getMyProperties = asyncHandler(async (req, res) => {
+  // --- START OF DEBUGGING LOGS ---
+
+  console.log('--- Debugging /api/properties/my-properties ---');
+
+  // 1. Log the ID of the user making the request.
+  // This comes from the JWT token after the 'protect' middleware verifies it.
+  const loggedInUserId = req.user ? req.user.id : 'No user found on request';
+  console.log('Logged-in user ID from token:', loggedInUserId);
+  console.log('Known property owner ID from DB:', '68f4f450e5f755dc77b9d2cd');
+
+  // 2. We can add a check to see if they match right here.
+  if (req.user && loggedInUserId.toString() === '68f4f450e5f755dc77b9d2cd') {
+    console.log('✅ SUCCESS: The logged-in user ID matches the property owner ID.');
+  } else {
+    console.log('❌ MISMATCH: The logged-in user ID does NOT match the known property owner ID.');
   }
-};
+  
+  // --- END OF DEBUGGING LOGS ---
+
+  // It correctly looks for properties where the 'owner' field
+  // matches the ID of the logged-in user from the token (req.user.id).
+  const properties = await Property.find({ owner: req.user.id })
+    .select('-documentHashes')
+    .populate('owner', 'name email');
+  
+  // 3. Log the result of the database query.
+  console.log(`Database query found ${properties.length} properties for this user.`);
+  console.log('--------------------------------------------------');
+    
+  res.json(properties);
+});
 
 
-
-
-// --- Other Property Getter/Management Functions ---
-
-export const getMyProperties = async (req, res) => {
-  try {
-    const properties = await Property.find({ owner: req.user.id })
-      .select('-documentHashes')
-      .populate('owner', 'name email');
+export const getMarketplaceProperties = asyncHandler(async (req, res) => {
+    const properties = await Property.find({ status: 'listed_for_sale' })
+        .populate('owner', 'name email');
     res.json(properties);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while fetching your properties.' });
-  }
-};
+});
 
-export const getMarketplaceProperties = async (req, res) => {
-    try {
-        const properties = await Property.find({ status: 'listed_for_sale' })
-            .populate('owner', 'name email');
-        res.json(properties);
-    } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+export const getPropertyById = asyncHandler(async (req, res) => {
+  const property = await Property.findById(req.params.id).populate('owner', 'name email phone');
+  if (property) {
+    res.json(property);
+  } else {
+    res.status(404).json({ message: 'Property not found' });
+  }
+});
+
+export const confirmSale = asyncHandler(async (req, res) => {
+    const { buyerWalletAddress, transactionHash } = req.body;
+
+    if (!buyerWalletAddress || !transactionHash) {
+        return res.status(400).json({ message: 'Buyer wallet and transaction hash are required.' });
     }
-};
-export const getPropertyById = async (req, res) => {
-  try {
-    const property = await Property.findById(req.params.id).populate('owner', 'name email phone');
-    if (property) {
-      res.json(property);
+
+    if (!req.user || !req.user.walletAddress) {
+        return res.status(401).json({ message: 'User not properly authenticated.' });
+    }
+
+    const userWallet = req.user.walletAddress.toLowerCase();
+    const buyerWallet = buyerWalletAddress.toLowerCase();
+    if (userWallet !== buyerWallet) {
+        return res.status(403).json({ message: 'Wallet address does not match authenticated user.' });
+    }
+
+    const property = await Property.findById(req.params.id);
+    if (!property) {
+        return res.status(404).json({ message: 'Property not found' });
+    }
+
+    property.previousOwner = property.owner;
+    property.owner = req.user._id;
+    property.status = 'verified';
+    property.transactionHash = transactionHash;
+    property.soldAt = new Date();
+
+    const updatedProperty = await property.save();
+
+    res.json({
+        message: 'Sale confirmed and property updated successfully.',
+        property: updatedProperty
+    });
+});
+
+// @desc    Get all registered properties
+// @route   GET /api/properties/all
+// @access  Private/Verifier
+export const getAllProperties = asyncHandler(async (req, res) => {
+    const properties = await Property.find({}).sort({ createdAt: -1 });
+
+    if (properties) {
+        res.status(200).json(properties);
     } else {
-      res.status(404).json({ message: 'Property not found' });
+        res.status(404);
+        throw new Error('No properties found.');
     }
-  } catch (error) {
-    res.status(500).json({ message: 'Server Error' });
-  }
-};
-export const confirmSale = async (req, res) => {
-    console.log('=== confirmSale controller reached ===');
-    console.log('Authenticated user:', req.user?._id, req.user?.walletAddress);
+});
 
-    try {
-        const { buyerWalletAddress, transactionHash } = req.body;
-
-        if (!buyerWalletAddress || !transactionHash) {
-            console.log(buyerWalletAddress, transactionHash);
-            return res.status(400).json({ message: 'Buyer wallet and transaction hash are required.' });
-        }
-
-        if (!req.user || !req.user.walletAddress) {
-            return res.status(401).json({ message: 'User not properly authenticated.' });
-        }
-
-        const userWallet = req.user.walletAddress.toLowerCase();
-        const buyerWallet = buyerWalletAddress.toLowerCase();
-        if (userWallet !== buyerWallet) {
-            console.log('Wallet mismatch:', { userWallet, buyerWallet });
-            return res.status(403).json({ message: 'Wallet address does not match authenticated user.' });
-        }
-
-        // Find the property being sold
-        console.log('Looking for property with ID:', req.params.id);
-        const property = await Property.findById(req.params.id);
-        if (!property) {
-            return res.status(404).json({ message: 'Property not found' });
-        }
-
-        console.log('Property found, updating sale info...');
-
-        // Update the existing property with sale info
-        property.previousOwner = property.owner; // record old owner
-        property.owner = req.user._id; // new owner
-        property.status = 'verified';
-        property.transactionHash = transactionHash;
-        property.soldAt = new Date();
-
-        const updatedProperty = await property.save();
-
-        console.log('Property updated successfully');
-
-        res.json({
-            message: 'Sale confirmed and property updated successfully.',
-            property: updatedProperty
-        });
-    } catch (error) {
-        console.error('Error in confirmSale:', error);
-        res.status(500).json({ message: 'Server Error', error: error.message });
-    }
-};

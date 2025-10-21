@@ -1,678 +1,169 @@
-// import React, { useState, useEffect } from 'react';
-// import { useAuth } from '../../context/AuthContext';
-// import { ethers } from 'ethers';
-// import PropertyTitleABI from '../../abis/PropertyTitle.json';
-// import MarketplaceABI from '../../abis/Marketplace.json';
-// const MyLandsPage = () => {
-//     const { isAuthenticated } = useAuth();
-//     const [myLands, setMyLands] = useState([]);
-//     const [loading, setLoading] = useState(true);
-//     const [error, setError] = useState(null);
-
-//     // Track price inputs per landId
-//     const [priceInputs, setPriceInputs] = useState({});
-
-//     useEffect(() => {
-//         if (!isAuthenticated) {
-//             setLoading(false);
-//             return;
-//         }
-
-//         // const fetchMyLands = async () => {
-//         //     try {
-//         //         const response = await fetch('http://localhost:5000/api/properties/my-properties', {
-//         //             credentials: 'include',
-//         //         });
-
-//         //         if (!response.ok) {
-//         //             const errorData = await response.json();
-//         //             throw new Error(errorData.message || 'Failed to fetch your lands');
-//         //         }
-
-//         //         const data = await response.json();
-//         //         setMyLands(data);
-//         //     } catch (err) {
-//         //         setError(err.message);
-//         //     } finally {
-//         //         setLoading(false);
-//         //     }
-//         // };
-
-
-//         const fetchMyLands = async () => {
-//          try {
-//         console.log('Fetching my lands...'); // Add this
-//         const response = await fetch('http://localhost:5000/api/properties/my-properties', {
-//             credentials: 'include',
-//           });
-
-//          console.log('Response status:', response.status); // Add this
-
-//           if (!response.ok) {
-//             const errorData = await response.json();
-//             console.error('Error data:', errorData); // Add this
-//             throw new Error(errorData.message || 'Failed to fetch your lands');
-//           }
-
-//            const data = await response.json();
-//            console.log('Fetched lands:', data); // Add this
-//            setMyLands(data);
-//           } catch (err) {
-//           console.error('Fetch error:', err); // Add this
-//           setError(err.message);
-//       } finally {
-//           setLoading(false);
-//       }
-//     };
-
-//         fetchMyLands();
-//     }, [isAuthenticated]);
-
-//     // Handler for "List for Sale"
-//     const handleListForSale = async (landId, price) => {
-//   if (!price) {
-//     setError("Price is required.");
-//     return;
-//   }
-
-//   try {
-//     const land = myLands.find(l => l._id === landId);
-//     if (!land) throw new Error("Land not found");
-
-//     const provider = new ethers.BrowserProvider(window.ethereum);
-//     const signer = await provider.getSigner();
-
-//     console.log("Step 1: Approving marketplace...");
-
-//     // Step 1: Approve Marketplace to manage this NFT
-//     const nftContract = new ethers.Contract(
-//       import.meta.env.VITE_PROPERTY_TITLE_ADDRESS,
-//       PropertyTitleABI.abi,
-//       signer
-//     );
-
-//     const approveTx = await nftContract.approve(
-//       import.meta.env.VITE_MARKETPLACE_ADDRESS,
-//       land.tokenId
-//     );
-//     console.log("Approve tx sent:", approveTx);
-
-//     const approveReceipt = await approveTx.wait();
-//     console.log("Approve tx receipt:", approveReceipt);
-//     console.log("Approve transaction hash:", approveTx.hash);
-
-//     console.log("Step 2: Listing property...");
-
-//     // Step 2: List property on Marketplace
-//     const marketplaceContract = new ethers.Contract(
-//       import.meta.env.VITE_MARKETPLACE_ADDRESS,
-//       MarketplaceABI.abi,
-//       signer
-//     );
-
-//     const priceInWei = ethers.parseEther(price.toString());
-//     console.log("Price in Wei:", priceInWei.toString());
-
-//     const listTx = await marketplaceContract.listProperty(land.tokenId, priceInWei);
-//     console.log("List tx sent:", listTx);
-
-//     const listReceipt = await listTx.wait();
-//     console.log("List tx receipt:", listReceipt);
-//     console.log("List transaction hash:", listTx.hash);
-
-//     console.log("Step 3: Sending finalize payload to backend...");
-
-//     // Step 3: Finalize listing in backend
-//     const finalizePayload = {
-//       approveTxHash: approveTx.hash,
-//       listTxHash: listTx.hash,
-//       price
-//     };
-
-//     console.log("Final payload to backend:", finalizePayload);
-
-//     const finalizeResponse = await fetch(
-//       `http://localhost:5000/api/properties/${landId}/finalize-listing`,
-//       {
-//         method: 'POST',
-//         headers: { 'Content-Type': 'application/json' },
-//         credentials: 'include',
-//         body: JSON.stringify(finalizePayload),
-//       }
-//     );
-
-//     if (!finalizeResponse.ok) {
-//       const errorData = await finalizeResponse.json();
-//       throw new Error(errorData.message || 'Failed to finalize listing');
-//     }
-
-//     const result = await finalizeResponse.json();
-
-//     // Step 4: Update UI instantly
-//     setMyLands(prevLands =>
-//       prevLands.map(l => (l._id === landId ? result.data : l))
-//     );
-//     setError(null);
-
-//     console.log("Property successfully listed for sale!");
-
-//   } catch (err) {
-//     console.error("Error in handleListForSale:", err);
-//     setError(err.message);
-//   }
-// };
-
-
-
-
-
-//     // Helper to format the address
-//     const formatAddress = (land) => {
-//         if (land.address && land.address.street) {
-//             return `${land.address.street}, ${land.address.city}`;
-//         }
-//         return land.propertyAddress;
-//     };
-
-//     if (loading) return <div className="text-center py-8">Loading your lands...</div>;
-//     if (!isAuthenticated) return <div className="text-center py-8">Please log in to view your lands.</div>;
-//     if (myLands.length === 0 && !error) return <div className="text-center py-8">You have not registered any lands yet.</div>;
-
-//     return (
-//         <div className="container mx-auto p-4">
-//             <h1 className="text-3xl font-bold text-gray-800 mb-6">My Lands</h1>
-
-//             {error && (
-//                 <div className="p-4 mb-4 text-sm text-red-800 bg-red-100 rounded-lg" role="alert">
-//                     {error}
-//                 </div>
-//             )}
-
-//             <div className="overflow-x-auto">
-//                 <table className="min-w-full divide-y divide-gray-200 shadow-md rounded-lg">
-//                     <thead className="bg-gray-50">
-//                         <tr>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property ID</th>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Survey No.</th>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Area</th>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-//                         </tr>
-//                     </thead>
-//                     <tbody className="bg-white divide-y divide-gray-200">
-//                         {myLands.map((land) => (
-//                             <tr key={land._id}>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{land.propertyId}</td>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{land.surveyNumber}</td>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatAddress(land)}</td>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{land.area} {land.areaUnit || 'sq m'}</td>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-//                                     {land.status === 'verified' ? (
-//                                         <input
-//                                             type="number"
-//                                             className="border rounded px-2 py-1 w-24"
-//                                             placeholder="Price"
-//                                             value={priceInputs[land._id] || ""}
-//                                             onChange={e =>
-//                                                 setPriceInputs(prev => ({
-//                                                     ...prev,
-//                                                     [land._id]: e.target.value
-//                                                 }))
-//                                             }
-//                                         />
-//                                     ) : (
-//                                         `${land.price || '-'} ETH`
-//                                     )}
-//                                 </td>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-//                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-//                                         land.status === 'listed_for_sale' ? 'bg-green-100 text-green-800' :
-//                                         land.status === 'verified' ? 'bg-blue-100 text-blue-800' :
-//                                         'bg-yellow-100 text-yellow-800'
-//                                     }`}>
-//                                         {land.status.replace(/_/g, ' ')}
-//                                     </span>
-//                                 </td>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-//                                     <button className="text-indigo-600 hover:text-indigo-900">View</button>
-//                                     {land.status === 'verified' && (
-//                                         <button
-//                                             onClick={() => handleListForSale(land._id, priceInputs[land._id])}
-//                                             className="ml-4 text-green-600 hover:text-green-900"
-//                                         >
-//                                             List for Sale
-//                                         </button>
-//                                     )}
-//                                 </td>
-//                             </tr>
-//                         ))}
-//                     </tbody>
-//                 </table>
-//             </div>
-//         </div>
-//     );
-// };
-
-// export default MyLandsPage;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// import React, { useState, useEffect } from 'react';
-// import { useAuth } from '../../context/AuthContext';
-
-// const MyLandsPage = () => {
-//     const { isAuthenticated } = useAuth();
-//     const [myLands, setMyLands] = useState([]);
-//     const [loading, setLoading] = useState(true);
-//     const [error, setError] = useState(null);
-
-//     // Fetch all lands owned by the user when the component loads
-//     useEffect(() => {
-//         if (!isAuthenticated) {
-//             setLoading(false);
-//             return;
-//         }
-
-//         const fetchMyLands = async () => {
-//             try {
-//                 const response = await fetch('http://localhost:5000/api/properties/my-properties', {
-//                     credentials: 'include', // Automatically sends the auth cookie
-//                 });
-
-//                 if (!response.ok) {
-//                     const errorData = await response.json();
-//                     throw new Error(errorData.message || 'Failed to fetch your lands');
-//                 }
-
-//                 const data = await response.json();
-//                 setMyLands(data);
-//             } catch (err) {
-//                 setError(err.message);
-//             } finally {
-//                 setLoading(false);
-//             }
-//         };
-
-//         fetchMyLands();
-//     }, [isAuthenticated]);
-
-//     // Handler for the "List for Sale" button
-//     // In MyLandsPage.jsx
-
-// const handleListForSale = async (landId) => {
-//     try {
-//         // Change the URL in this fetch call
-//         const response = await fetch(`http://localhost:5000/api/properties/list/${landId}`, {
-//             method: 'PUT',
-//             credentials: 'include',
-//         });
-
-//         if (!response.ok) {
-//             const errorData = await response.json();
-//             throw new Error(errorData.message || 'Failed to update status');
-//         }
-        
-//         const updatedLand = await response.json();
-
-//         // Update the state for an instant UI change
-//         setMyLands(prevLands => 
-//             prevLands.map(land => 
-//                 land._id === landId ? updatedLand : land
-//             )
-//         );
-//         setError(null);
-
-//     } catch (err) {
-//         setError(err.message);
-//     }
-// };
-    
-//     // Helper to format the address
-//     const formatAddress = (land) => {
-//         if (land.address && land.address.street) {
-//             return `${land.address.street}, ${land.address.city}`;
-//         }
-//         return land.propertyAddress;
-//     };
-
-//     if (loading) {
-//         return <div className="text-center py-8">Loading your lands...</div>;
-//     }
-
-//     if (!isAuthenticated) {
-//         return <div className="text-center py-8">Please log in to view your lands.</div>;
-//     }
-
-//     if (myLands.length === 0 && !error) {
-//         return <div className="text-center py-8">You have not registered any lands yet.</div>;
-//     }
-
-//     return (
-//         <div className="container mx-auto p-4">
-//             <h1 className="text-3xl font-bold text-gray-800 mb-6">My Lands</h1>
-            
-//             {error && <div className="p-4 mb-4 text-sm text-red-800 bg-red-100 rounded-lg" role="alert">{error}</div>}
-
-//             <div className="overflow-x-auto">
-//                 <table className="min-w-full divide-y divide-gray-200 shadow-md rounded-lg">
-//                     <thead className="bg-gray-50">
-//                         <tr>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property ID</th>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Survey No.</th>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Area</th>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-//                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-//                         </tr>
-//                     </thead>
-//                     <tbody className="bg-white divide-y divide-gray-200">
-//                         {myLands.map((land) => (
-//                             <tr key={land._id}>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{land.propertyPID}</td>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{land.surveyNumber}</td>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatAddress(land)}</td>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{land.area} {land.areaUnit || 'sq m'}</td>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{land.price} ETH</td>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-//                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-//                                         land.status === 'listed_for_sale' ? 'bg-green-100 text-green-800' :
-//                                         land.status === 'verified' ? 'bg-blue-100 text-blue-800' :
-//                                         'bg-yellow-100 text-yellow-800'
-//                                     }`}>
-//                                         {land.status.replace(/_/g, ' ')}
-//                                     </span>
-//                                 </td>
-//                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-//                                     <button className="text-indigo-600 hover:text-indigo-900">View</button>
-                                    
-//                                     {land.status === 'verified' && (
-//                                         <button 
-//                                             onClick={() => handleListForSale(land._id)}
-//                                             className="ml-4 text-green-600 hover:text-green-900"
-//                                         >
-//                                             List for Sale
-//                                         </button>
-//                                     )}
-//                                 </td>
-//                             </tr>
-//                         ))}
-//                     </tbody>
-//                 </table>
-//             </div>
-//         </div>
-//     );
-// };
-
-// export default MyLandsPage;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { ethers } from 'ethers';
-import PropertyTitleABI from '../../abis/PropertyTitle.json';
-import MarketplaceABI from '../../abis/Marketplace.json';
+import { useAuth } from '../../context/AuthContext'; // Make sure this path is correct
 
 const MyLandsPage = () => {
-    const { isAuthenticated, token } = useAuth(); // ✅ Get token from AuthContext
+    const { user } = useAuth();
     const [myLands, setMyLands] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Track price inputs per landId
-    const [priceInputs, setPriceInputs] = useState({});
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedLand, setSelectedLand] = useState(null);
+    const [listingPrice, setListingPrice] = useState('');
+    const [propertyImage, setPropertyImage] = useState(null);
+    const [listingError, setListingError] = useState(null);
 
     useEffect(() => {
-        if (!isAuthenticated || !token) {
+        if (!user || !user.token) {
+            setError('Please log in to view your lands.');
             setLoading(false);
             return;
         }
 
         const fetchMyLands = async () => {
             try {
-                console.log('Fetching my lands...');
-                const response = await fetch('http://localhost:5000/api/properties/my-properties', {
-                    credentials: 'include',
+                const response = await fetch('http://localhost:5000/api/properties/my', {
                     headers: {
-                        'Authorization': `Bearer ${token}`, // ✅ Send token in header
-                        'Content-Type': 'application/json'
+                        'Authorization': `Bearer ${user.token}`
                     }
                 });
-
-                console.log('Response status:', response.status);
-
                 if (!response.ok) {
                     const errorData = await response.json();
-                    console.error('Error data:', errorData);
                     throw new Error(errorData.message || 'Failed to fetch your lands');
                 }
-
                 const data = await response.json();
-                console.log('Fetched lands:', data);
                 setMyLands(data);
             } catch (err) {
-                console.error('Fetch error:', err);
                 setError(err.message);
             } finally {
                 setLoading(false);
             }
         };
-
         fetchMyLands();
-    }, [isAuthenticated, token]);
+    }, [user]);
 
-    // Handler for "List for Sale"
-    const handleListForSale = async (landId, price) => {
-        if (!price) {
-            setError("Price is required.");
+    // --- MODIFIED: This now pre-fills the price if editing ---
+    const openListingModal = (land) => {
+        setSelectedLand(land);
+        setListingPrice(land.price > 0 ? land.price : ''); // Pre-fill price
+        setPropertyImage(null); // Always reset file input
+        setListingError(null);
+        setIsModalOpen(true);
+    };
+
+    // --- MODIFIED: Image is now optional ---
+    const handleConfirmListing = async (e) => {
+        e.preventDefault();
+        
+        if (!user || !user.token) {
+            setListingError('You must be logged in.');
+            return;
+        }
+        // Price is the only required field
+        if (!listingPrice) {
+            setListingError('Please provide a price.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('price', listingPrice);
+        
+        // --- MODIFIED: Only append image if one is selected ---
+        if (propertyImage) {
+            formData.append('image', propertyImage);
+        }
+
+        try {
+            const response = await fetch(`http://localhost:5000/api/properties/list/${selectedLand._id}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${user.token}`
+                },
+                body: formData 
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to update status');
+            }
+            
+            const updatedLand = await response.json();
+
+            setMyLands(prevLands => 
+                prevLands.map(land => 
+                    land._id === selectedLand._id ? updatedLand : land
+                )
+            );
+            
+            setIsModalOpen(false);
+            setSelectedLand(null);
+
+        } catch (err) {
+            setListingError(err.message);
+        }
+    };
+
+    // --- NEW FUNCTION: To withdraw a listing ---
+    const handleWithdrawListing = async (landId) => {
+        if (!window.confirm('Are you sure you want to withdraw this listing?')) {
+            return;
+        }
+
+        if (!user || !user.token) {
+            setError('You must be logged in.');
             return;
         }
 
         try {
-            const land = myLands.find(l => l._id === landId);
-            if (!land) throw new Error("Land not found");
-
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-
-            console.log("Step 1: Approving marketplace...");
-
-            // Step 1: Approve Marketplace to manage this NFT
-            const nftContract = new ethers.Contract(
-                import.meta.env.VITE_PROPERTY_TITLE_ADDRESS,
-                PropertyTitleABI.abi,
-                signer
-            );
-
-            const approveTx = await nftContract.approve(
-                import.meta.env.VITE_MARKETPLACE_ADDRESS,
-                land.tokenId
-            );
-            console.log("Approve tx sent:", approveTx);
-
-            const approveReceipt = await approveTx.wait();
-            console.log("Approve tx receipt:", approveReceipt);
-            console.log("Approve transaction hash:", approveTx.hash);
-
-            console.log("Step 2: Listing property...");
-
-            // Step 2: List property on Marketplace
-            const marketplaceContract = new ethers.Contract(
-                import.meta.env.VITE_MARKETPLACE_ADDRESS,
-                MarketplaceABI.abi,
-                signer
-            );
-
-            const priceInWei = ethers.parseEther(price.toString());
-            console.log("Price in Wei:", priceInWei.toString());
-
-            const listTx = await marketplaceContract.listProperty(land.tokenId, priceInWei);
-            console.log("List tx sent:", listTx);
-
-            const listReceipt = await listTx.wait();
-            console.log("List tx receipt:", listReceipt);
-            console.log("List transaction hash:", listTx.hash);
-
-            console.log("Step 3: Sending finalize payload to backend...");
-
-            // Step 3: Finalize listing in backend
-            const finalizePayload = {
-                approveTxHash: approveTx.hash,
-                listTxHash: listTx.hash,
-                price
-            };
-
-            console.log("Final payload to backend:", finalizePayload);
-
-            const finalizeResponse = await fetch(
-                `http://localhost:5000/api/properties/${landId}/finalize-listing`,
-                {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}` // ✅ Send token here too
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify(finalizePayload),
+            // We will create this new API route in the backend
+            const response = await fetch(`http://localhost:5000/api/properties/withdraw/${landId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${user.token}`
                 }
-            );
+            });
 
-            if (!finalizeResponse.ok) {
-                const errorData = await finalizeResponse.json();
-                throw new Error(errorData.message || 'Failed to finalize listing');
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to withdraw listing');
             }
 
-            const result = await finalizeResponse.json();
+            const updatedLand = await response.json(); // Backend will return land with "verified" status
 
-            // Step 4: Update UI instantly
+            // Update state to show the change
             setMyLands(prevLands =>
-                prevLands.map(l => (l._id === landId ? result.data : l))
+                prevLands.map(land =>
+                    land._id === landId ? updatedLand : land
+                )
             );
             setError(null);
 
-            console.log("Property successfully listed for sale!");
-
         } catch (err) {
-            console.error("Error in handleListForSale:", err);
             setError(err.message);
         }
     };
-
-    // Helper to format the address
+    
     const formatAddress = (land) => {
-        if (land.address && land.address.street) {
-            return `${land.address.street}, ${land.address.city}`;
-        }
-        return land.propertyAddress;
+        return land.propertyAddress; // Simplified
     };
 
-    if (loading) return <div className="text-center py-8">Loading your lands...</div>;
-    if (!isAuthenticated) return <div className="text-center py-8">Please log in to view your lands.</div>;
-    if (myLands.length === 0 && !error) return <div className="text-center py-8">You have not registered any lands yet.</div>;
+    // ... (loading, !user, myLands.length checks are the same) ...
+    if (loading) return <div className="text-center py-8">Loading...</div>;
+    if (!user) return <div className="text-center py-8">Please log in.</div>;
+    if (myLands.length === 0 && !error) return <div className="text-center py-8">No lands registered.</div>;
+
 
     return (
         <div className="container mx-auto p-4">
             <h1 className="text-3xl font-bold text-gray-800 mb-6">My Lands</h1>
-
-            {error && (
-                <div className="p-4 mb-4 text-sm text-red-800 bg-red-100 rounded-lg" role="alert">
-                    {error}
-                </div>
-            )}
+            
+            {error && <div className="p-4 mb-4 text-sm text-red-800 bg-red-100 rounded-lg" role="alert">{error}</div>}
 
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 shadow-md rounded-lg">
                     <thead className="bg-gray-50">
                         <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Property ID</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Survey No.</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
@@ -685,27 +176,23 @@ const MyLandsPage = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                         {myLands.map((land) => (
                             <tr key={land._id}>
+                                <td className="px-6 py-4">
+                                  {land.image ? (
+                                    <img 
+                                      src={`http://localhost:5000/${land.image.replace(/\\/g, '/')}`} 
+                                      alt="Land" 
+                                      className="h-16 w-16 object-cover rounded"
+                                    />
+                                  ) : (
+                                    <span className="text-gray-400 text-xs">No Image</span>
+                                  )}
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{land.propertyId}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{land.surveyNumber}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatAddress(land)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{land.area} {land.areaUnit || 'sq m'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {land.status === 'verified' ? (
-                                        <input
-                                            type="number"
-                                            className="border rounded px-2 py-1 w-24"
-                                            placeholder="Price"
-                                            value={priceInputs[land._id] || ""}
-                                            onChange={e =>
-                                                setPriceInputs(prev => ({
-                                                    ...prev,
-                                                    [land._id]: e.target.value
-                                                }))
-                                            }
-                                        />
-                                    ) : (
-                                        `${land.price || '-'} ETH`
-                                    )}
+                                    {land.price > 0 ? `${land.price} ETH` : 'N/A'}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -716,15 +203,35 @@ const MyLandsPage = () => {
                                         {land.status.replace(/_/g, ' ')}
                                     </span>
                                 </td>
+                                
+                                {/* --- MODIFIED: Actions Column --- */}
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <button className="text-indigo-600 hover:text-indigo-900">View</button>
+                                    {/* Show "List for Sale" when verified */}
                                     {land.status === 'verified' && (
-                                        <button
-                                            onClick={() => handleListForSale(land._id, priceInputs[land._id])}
+                                        <button 
+                                            onClick={() => openListingModal(land)}
                                             className="ml-4 text-green-600 hover:text-green-900"
                                         >
                                             List for Sale
                                         </button>
+                                    )}
+
+                                    {/* Show "Edit" and "Withdraw" when listed */}
+                                    {land.status === 'listed_for_sale' && (
+                                        <>
+                                            <button 
+                                                onClick={() => openListingModal(land)}
+                                                className="text-blue-600 hover:text-blue-900"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button 
+                                                onClick={() => handleWithdrawListing(land._id)}
+                                                className="ml-4 text-red-600 hover:text-red-900"
+                                            >
+                                                Withdraw
+                                            </button>
+                                        </>
                                     )}
                                 </td>
                             </tr>
@@ -732,6 +239,57 @@ const MyLandsPage = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* --- MODIFIED: Modal --- */}
+            {isModalOpen && selectedLand && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+                        <form onSubmit={handleConfirmListing}>
+                            <h2 className="text-2xl font-bold mb-4">Edit Listing</h2>
+                            <p className="mb-4">Listing: <span className="font-medium">{selectedLand.propertyId}</span></p>
+
+                            {listingError && <div className="p-3 mb-4 text-sm text-red-800 bg-red-100 rounded-lg">{listingError}</div>}
+                            
+                            <div className="mb-4">
+                                <label htmlFor="price" className="block text-sm font-medium text-gray-700">Price (in ETH)</label>
+                                <input
+                                    type="number"
+                                    id="price"
+                                    step="0.01"
+                                    min="0.01"
+                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                    value={listingPrice}
+                                    onChange={(e) => setListingPrice(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            
+                            <div className="mb-6">
+                                {/* --- MODIFIED: Image is now optional --- */}
+                                <label htmlFor="image" className="block text-sm font-medium text-gray-700">Property Image</label>
+                                <p className="text-xs text-gray-500 mb-1">Leave blank to keep the current image.</p>
+                                <input
+                                    type="file"
+                                    id="image"
+                                    accept="image/png, image/jpeg"
+                                    className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                    onChange={(e) => setPropertyImage(e.target.files[0])}
+                                    // 'required' is removed
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-3">
+                                <button typeB="button" onClick={() => setIsModalOpen(false)} className="py-2 px-4 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+                                    Cancel
+                                </button>
+                                <button type="submit" className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                                    Confirm Listing
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
