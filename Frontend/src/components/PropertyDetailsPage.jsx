@@ -1,11 +1,9 @@
-// src/pages/buyer/PropertyDetailsPage.js
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, MapPin, Hash, ScanLine, Ruler, User, Mail, Phone, ExternalLink, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, MapPin, Hash, ScanLine, Ruler, User, Mail, Phone, ExternalLink } from 'lucide-react';
 
 const PropertyDetailsPage = () => {
-    const { id } = useParams(); // Get property ID from the URL
+    const { id } = useParams();
     const [property, setProperty] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -13,9 +11,7 @@ const PropertyDetailsPage = () => {
     useEffect(() => {
         const fetchPropertyDetails = async () => {
             try {
-                const response = await fetch(`http://localhost:5000/api/properties/${id}`, {
-                    credentials: 'include',
-                });
+                const response = await fetch(`http://localhost:5000/api/properties/${id}`);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: Failed to fetch property details`);
                 }
@@ -27,44 +23,45 @@ const PropertyDetailsPage = () => {
                 setLoading(false);
             }
         };
-
         fetchPropertyDetails();
     }, [id]);
 
-    if (loading) {
-        return <div className="text-center py-20">Loading property details...</div>;
-    }
+    if (loading) return <div className="text-center py-20">Loading property details...</div>;
+    if (error) return <div className="text-center py-20 text-red-600">Error: {error}</div>;
+    if (!property) return <div className="text-center py-20">Property not found.</div>;
 
-    if (error) {
-        return <div className="text-center py-20 text-red-600">Error: {error}</div>;
-    }
-
-    if (!property) {
-        return <div className="text-center py-20">Property not found.</div>;
-    }
-
-    // Safely access owner details with optional chaining
     const ownerName = property.owner?.name || 'N/A';
     const ownerEmail = property.owner?.email || 'N/A';
     const ownerPhone = property.owner?.phone || 'Not Provided';
 
+    // --- THIS IS THE NEW, CLEANER FIX ---
+    const fallbackImage = 'https://via.placeholder.com/800x400?text=No+Image+Available';
+    const imageUrl = property.image
+        ? `http://localhost:5000/${property.image}`
+        : fallbackImage;
+    // --- END OF FIX ---
+
     return (
         <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
-            {/* Back Link */}
             <div>
                 <Link to="/buyer-dashboard/marketplace" className="flex items-center text-blue-600 hover:underline">
                     <ArrowLeft size={20} className="mr-2" /> Back to Marketplace
                 </Link>
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Left Column: Property Info */}
                 <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md space-y-6">
-                    {/* Image Placeholder */}
-                    <div className="bg-gray-200 h-80 w-full rounded-lg flex items-center justify-center text-gray-500">
-                                            </div>
                     
-                    {/* Header */}
+                    {/* --- This now shows the dynamic image --- */}
+                    <div className="w-full h-80 rounded-lg overflow-hidden">
+                        <img
+                            src={imageUrl}
+                            alt={property.propertyAddress}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { e.target.src = fallbackImage; }}
+                        />
+                    </div>
+                    
+                    {/* ... (rest of the page is the same) ... */}
                     <div className="flex justify-between items-start">
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900">{property.propertyAddress}</h1>
@@ -77,10 +74,7 @@ const PropertyDetailsPage = () => {
                             For Sale
                         </span>
                     </div>
-                    
                     <hr />
-
-                    {/* Property Details Grid */}
                     <h2 className="text-xl font-semibold text-gray-800">Property Details</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                         <DetailItem icon={<Hash size={20} />} label="Property ID" value={property.propertyId} />
@@ -88,17 +82,14 @@ const PropertyDetailsPage = () => {
                         <DetailItem icon={<Ruler size={20} />} label="Area" value={`${property.area} ${property.areaUnit || 'sq m'}`} />
                         <DetailItem icon={<MapPin size={20} />} label="Full Address" value={property.propertyAddress} />
                     </div>
-
                     <hr />
-
-                    {/* Verifiable Documents */}
                     <h2 className="text-xl font-semibold text-gray-800">Verifiable Documents</h2>
                     <div className="space-y-3">
                         {property.documentHashes && property.documentHashes.length > 0 ? (
                             property.documentHashes.map((hash, index) => (
                                 <a
                                     key={index}
-                                    href={`https://ipfs.io/ipfs/${hash}`} // Example IPFS gateway link
+                                    href={`https://ipfs.io/ipfs/${hash}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition"
@@ -112,10 +103,7 @@ const PropertyDetailsPage = () => {
                         )}
                     </div>
                 </div>
-
-                {/* Right Column: Actions & Seller Info */}
                 <div className="lg:col-span-1 space-y-6">
-                    {/* Purchase Card */}
                     <div className="bg-white p-6 rounded-lg shadow-md">
                         <p className="text-gray-600">Price</p>
                         <p className="text-3xl font-bold text-green-600 my-2">{property.price} ETH</p>
@@ -123,8 +111,6 @@ const PropertyDetailsPage = () => {
                             Initiate Purchase
                         </button>
                     </div>
-
-                    {/* Seller Information Card */}
                     <div className="bg-white p-6 rounded-lg shadow-md">
                         <h2 className="text-xl font-semibold text-gray-800 mb-4">Seller Information</h2>
                         <div className="space-y-4">
@@ -139,7 +125,6 @@ const PropertyDetailsPage = () => {
     );
 };
 
-// Helper component for consistent styling
 const DetailItem = ({ icon, label, value }) => (
     <div className="flex items-start">
         <span className="text-gray-500 mt-1 mr-3">{icon}</span>

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// This import path is now corrected for the new location
 import PropertyCard from '../../components/PropertyCard'; 
 
 const MarketplaceBrowse = () => {
@@ -10,9 +9,8 @@ const MarketplaceBrowse = () => {
     useEffect(() => {
         const fetchMarketplaceProperties = async () => {
             try {
-                const response = await fetch('http://localhost:5000/api/properties/marketplace', {
-                    credentials: 'include',
-                });
+                // --- FIX: Removed 'credentials: "include"' ---
+                const response = await fetch('http://localhost:5000/api/properties/marketplace');
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: Failed to fetch properties`);
@@ -20,7 +18,7 @@ const MarketplaceBrowse = () => {
 
                 const data = await response.json();
                 setProperties(data);
-            } catch (err) {
+            } catch (err){
                 setError(err.message);
             } finally {
                 setLoading(false);
@@ -50,6 +48,7 @@ const MarketplaceBrowse = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {properties.map(property => (
+                    // This now works because PropertyCard is fixed
                     <PropertyCard key={property?.propertyId} property={property} />
                 ))}
             </div>

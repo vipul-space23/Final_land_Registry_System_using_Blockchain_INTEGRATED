@@ -37,7 +37,7 @@ const VerifierDashboardPage = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-100 py-8">
+        <div className="min-h-screen bg-white py-8">
             <div className="container mx-auto max-w-7xl px-4">
                 {/* User Profile Section */}
                 <div className="flex items-center space-x-4 mb-8">

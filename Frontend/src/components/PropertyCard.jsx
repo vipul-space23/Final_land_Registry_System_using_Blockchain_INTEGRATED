@@ -3,42 +3,42 @@ import { Link } from 'react-router-dom';
 import { MapPin, DollarSign, Ruler, CircleUser } from 'lucide-react';
 
 const PropertyCard = ({ property }) => {
-    // Guard clause to prevent crashes if property is null or undefined
     if (!property) {
         return null;
     }
 
-    // Use optional chaining for safely accessing nested properties
     const ownerName = property?.owner?.name || 'N/A';
     const ownerEmail = property?.owner?.email || 'N/A';
-    
-    // Combine address details for a cleaner display
     const displayAddress = `${property.propertyAddress}${property.district ? `, ${property.district}` : ''}`;
-    
-    // Fallback image if property.image is missing
     const fallbackImage = 'https://via.placeholder.com/800x400?text=No+Image+Available';
+
+    // --- THIS IS THE NEW, CLEANER FIX ---
+    // property.image is now "landphotos/image-123.png"
+    // We just prepend the backend server URL
+    const imageUrl = property.image
+        ? `http://localhost:5000/${property.image}`
+        : fallbackImage;
+    // --- END OF FIX ---
 
     return (
         <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
             {/* Property Image */}
             <div className="h-48 w-full">
                 <img
-                    src={property.image || fallbackImage}
+                    src={imageUrl} // <-- This will now be the correct URL
                     alt={displayAddress || 'Property Image'}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                        e.target.src = fallbackImage; // Fallback if image fails to load
+                        e.target.src = fallbackImage; // Fallback ONLY if the URL fails
                     }}
                 />
             </div>
 
             <div className="p-6 flex flex-col flex-grow">
-                {/* Property Address */}
+                {/* ... (rest of the card is the same) ... */}
                 <h3 className="text-2xl font-bold text-gray-900 truncate mb-2" title={displayAddress}>
                     {displayAddress}
                 </h3>
-
-                {/* Price and Area */}
                 <div className="flex items-center justify-between mb-4 text-gray-700">
                     <p className="flex items-center text-xl font-semibold text-green-600">
                         <DollarSign className="w-5 h-5 mr-1.5" />
@@ -49,10 +49,7 @@ const PropertyCard = ({ property }) => {
                         {property.area} {property.areaUnit ? property.areaUnit.replace('_', ' ') : 'sq m'}
                     </p>
                 </div>
-                
                 <hr className="my-4" />
-
-                {/* Owner Information */}
                 <div className="mb-5">
                     <h4 className="text-sm font-semibold text-gray-500 mb-2">OWNED BY</h4>
                     <div className="flex items-center space-x-3">
@@ -63,8 +60,6 @@ const PropertyCard = ({ property }) => {
                         </div>
                     </div>
                 </div>
-
-                {/* Action Button - Pushes to the bottom */}
                 <div className="mt-auto">
                     <Link
                         to={`/buyer-dashboard/property/${property._id}`}

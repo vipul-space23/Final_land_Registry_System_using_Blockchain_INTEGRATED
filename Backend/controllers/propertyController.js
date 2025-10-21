@@ -333,8 +333,16 @@ export const listPropertySimple = asyncHandler(async (req, res) => {
   property.status = 'listed_for_sale';
   
   // --- MODIFIED: Only update image if a new one was uploaded ---
-  if (imagePath) {
-    property.image = imagePath; 
+if (req.file) {
+    // req.file.filename is 'image-12345.png'
+    // We build the correct URL path: 'landphotos/image-12345.png'
+    // We must use forward slashes for URLs
+    const imagePath = `landphotos/${req.file.filename}`;
+    property.image = imagePath; // Save this clean path
+  } else if (property.status === 'verified') {
+    // This is the first time listing, and they didn't upload an image
+    res.status(400);
+    throw new Error('An image is required when listing for the first time.');
   }
   
   const updatedProperty = await property.save();
@@ -452,7 +460,6 @@ export const getMyProperties = asyncHandler(async (req, res) => {
   // This comes from the JWT token after the 'protect' middleware verifies it.
   const loggedInUserId = req.user ? req.user.id : 'No user found on request';
   console.log('Logged-in user ID from token:', loggedInUserId);
-  console.log('Known property owner ID from DB:', '68f4f450e5f755dc77b9d2cd');
 
   // 2. We can add a check to see if they match right here.
   if (req.user && loggedInUserId.toString() === '68f4f450e5f755dc77b9d2cd') {
