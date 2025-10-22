@@ -55,11 +55,17 @@ const propertySchema = new mongoose.Schema({
   },
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   verifier: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+
   previousOwner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   soldAt: { type: Date, default: null },
   soldPrice: { type: Number, default: null },
   transactionHash: { type: String, default: null },
   isWithdrawn: { type: Boolean, default: false },
+
+  latitude: { type: Number, default: null },
+  longitude: { type: Number, default: null },
+  
 }, { timestamps: true });
 
 // ✅ Create a unique index on district + surveyNumber

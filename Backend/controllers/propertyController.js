@@ -474,7 +474,7 @@ export const getMyProperties = asyncHandler(async (req, res) => {
   // matches the ID of the logged-in user from the token (req.user.id).
   const properties = await Property.find({ owner: req.user.id })
     .select('-documentHashes')
-    .populate('owner', 'name email');
+    .populate('previousOwner','owner', 'name email walletAddress phone');
   
   // 3. Log the result of the database query.
   console.log(`Database query found ${properties.length} properties for this user.`);
@@ -549,3 +549,42 @@ export const getAllProperties = asyncHandler(async (req, res) => {
     }
 });
 
+// ... (keep all your other functions like getMyProperties, listPropertySimple, etc.)
+
+/**
+ * @desc    Buyer requests to purchase a property
+ * @route   PUT /api/properties/:id/request-purchase
+ * @access  Private (Buyer)
+ */
+export const requestPurchase = asyncHandler(async (req, res) => {
+  // 1. Find the property being requested
+  const property = await Property.findById(req.params.id);
+
+  if (!property) {
+    res.status(404);
+    throw new Error('Property not found');
+  }
+
+  // 2. Check if it's for sale
+  if (property.status !== 'listed_for_sale') {
+    res.status(400);
+    throw new Error('This property is not currently listed for sale.');
+  }
+
+  // 3. Make sure the buyer isn't the owner
+  if (property.owner.toString() === req.user._id.toString()) {
+    res.status(400);
+    throw new Error('You cannot buy your own property.');
+  }
+
+  // 4. Update the property to show a pending request
+  property.status = 'pending_seller_verification';
+  property.buyer = req.user._id; // Assign the logged-in buyer's ID
+  
+  const updatedProperty = await property.save();
+
+  res.status(200).json({
+    message: 'Purchase request sent to seller successfully!',
+    data: updatedProperty,
+  });
+});

@@ -51,6 +51,8 @@ app.use(cookieParser());
 // This serves the 'uploads' folder for KYC documents
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+app.use('/images', express.static(path.join(__dirname, 'Backend', 'landphotos')));
+
 // --- THIS IS THE NEW LINE ---
 // This serves your entire project directory as static.
 // It allows requests like 'http://localhost:5000/Backend/landphotos/image.png'

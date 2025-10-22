@@ -26,7 +26,7 @@ export const getSellerRequests = async (req, res) => {
     const properties = await Property.find({
       owner: req.user.id,
       status: 'pending_seller_verification'
-    }).populate('buyer', 'name email phone'); // Populates the potential buyer's info
+    }).populate('buyer', 'name email phone walletAddress'); // Populates the potential buyer's info
 
     console.log("Fetched pending requests:", properties);
 

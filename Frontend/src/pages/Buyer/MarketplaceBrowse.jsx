@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import PropertyCard from '../../components/PropertyCard'; 
+import PropertyCard from '../../components/PropertyCard';
 
 const MarketplaceBrowse = () => {
     const [properties, setProperties] = useState([]);
@@ -9,7 +9,6 @@ const MarketplaceBrowse = () => {
     useEffect(() => {
         const fetchMarketplaceProperties = async () => {
             try {
-                // --- FIX: Removed 'credentials: "include"' ---
                 const response = await fetch('http://localhost:5000/api/properties/marketplace');
 
                 if (!response.ok) {
@@ -18,7 +17,7 @@ const MarketplaceBrowse = () => {
 
                 const data = await response.json();
                 setProperties(data);
-            } catch (err){
+            } catch (err) {
                 setError(err.message);
             } finally {
                 setLoading(false);
@@ -48,8 +47,7 @@ const MarketplaceBrowse = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {properties.map(property => (
-                    // This now works because PropertyCard is fixed
-                    <PropertyCard key={property?.propertyId} property={property} />
+                    <PropertyCard key={property?.propertyId} property={property} image={`http://localhost:5000/images/${property.image}`} />
                 ))}
             </div>
         </div>
