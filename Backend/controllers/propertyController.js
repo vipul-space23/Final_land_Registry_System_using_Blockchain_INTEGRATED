@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import User from '../models/userModel.js';
 import Property from '../models/propertyModel.js';
 
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -474,7 +475,7 @@ export const getMyProperties = asyncHandler(async (req, res) => {
   // matches the ID of the logged-in user from the token (req.user.id).
   const properties = await Property.find({ owner: req.user.id })
     .select('-documentHashes')
-    .populate('previousOwner','owner', 'name email walletAddress phone');
+    .populate('previousOwner', 'name email walletAddress phone') 
   
   // 3. Log the result of the database query.
   console.log(`Database query found ${properties.length} properties for this user.`);
