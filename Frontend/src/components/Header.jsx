@@ -170,7 +170,7 @@ const Header = () => {
       icon: <User className="h-4 w-4" />,
     },
     {
-      name: "Add Land",
+      name: "Verify Land",
       path: "/owner-dashboard/add-land",
       icon: <PlusCircle className="h-4 w-4" />,
     },

@@ -634,42 +634,120 @@ export const getPropertyById = asyncHandler(async (req, res) => {
   }
 });
 
+// export const confirmSale = asyncHandler(async (req, res) => {
+//     const { buyerWalletAddress, transactionHash } = req.body;
+
+//     if (!buyerWalletAddress || !transactionHash) {
+//         return res.status(400).json({ message: 'Buyer wallet and transaction hash are required.' });
+//     }
+
+//     if (!req.user || !req.user.walletAddress) {
+//         return res.status(401).json({ message: 'User not properly authenticated.' });
+//     }
+
+//     const userWallet = req.user.walletAddress.toLowerCase();
+//     const buyerWallet = buyerWalletAddress.toLowerCase();
+//     if (userWallet !== buyerWallet) {
+//         return res.status(403).json({ message: 'Wallet address does not match authenticated user.' });
+//     }
+
+//     const property = await Property.findById(req.params.id);
+//     if (!property) {
+//         return res.status(404).json({ message: 'Property not found' });
+//     }
+
+//     property.previousOwner = property.owner;
+//     property.owner = req.user._id;
+//     property.status = 'verified';
+//     property.transactionHash = transactionHash;
+//     property.soldAt = new Date();
+
+//     const updatedProperty = await property.save();
+
+//     res.json({
+//         message: 'Sale confirmed and property updated successfully.',
+//         property: updatedProperty
+//     });
+// });
 export const confirmSale = asyncHandler(async (req, res) => {
     const { buyerWalletAddress, transactionHash } = req.body;
 
+    console.log('🔍 confirmSale called with:', { buyerWalletAddress, transactionHash, propertyId: req.params.id });
+
     if (!buyerWalletAddress || !transactionHash) {
-        return res.status(400).json({ message: 'Buyer wallet and transaction hash are required.' });
+        return res.status(400).json({ 
+            success: false,
+            message: 'Buyer wallet and transaction hash are required.' 
+        });
     }
 
     if (!req.user || !req.user.walletAddress) {
-        return res.status(401).json({ message: 'User not properly authenticated.' });
+        return res.status(401).json({ 
+            success: false,
+            message: 'User not properly authenticated.' 
+        });
     }
 
+    // Verify buyer wallet matches logged-in user
     const userWallet = req.user.walletAddress.toLowerCase();
     const buyerWallet = buyerWalletAddress.toLowerCase();
+    
     if (userWallet !== buyerWallet) {
-        return res.status(403).json({ message: 'Wallet address does not match authenticated user.' });
+        return res.status(403).json({ 
+            success: false,
+            message: 'Wallet address does not match authenticated user.' 
+        });
     }
 
     const property = await Property.findById(req.params.id);
+    
     if (!property) {
-        return res.status(404).json({ message: 'Property not found' });
+        return res.status(404).json({ 
+            success: false,
+            message: 'Property not found' 
+        });
     }
 
-    property.previousOwner = property.owner;
-    property.owner = req.user._id;
-    property.status = 'verified';
+    console.log('📋 Property before update:', {
+        id: property._id,
+        status: property.status,
+        currentOwner: property.ownerWalletAddress
+    });
+
+    // Must be listed for sale
+    if (property.status !== 'listed_for_sale') {
+        return res.status(400).json({ 
+            success: false,
+            message: `Property is not available for purchase. Current status: ${property.status}` 
+        });
+    }
+
+    // ✅ UPDATE ALL FIELDS INCLUDING STATUS
+    property.previousOwner = property.owner; // Save previous owner ID
+    property.owner = req.user._id; // New owner ID
+    property.ownerWalletAddress = buyerWalletAddress; // Update wallet
+    property.ownerName = req.user.name; // Update owner name
+    property.status = 'sold'; // ⚠️ THIS IS THE KEY LINE
     property.transactionHash = transactionHash;
     property.soldAt = new Date();
+    property.soldPrice = property.price;
 
+    // Save to database
     const updatedProperty = await property.save();
 
-    res.json({
-        message: 'Sale confirmed and property updated successfully.',
+    console.log('✅ Property after update:', {
+        id: updatedProperty._id,
+        status: updatedProperty.status,
+        newOwner: updatedProperty.ownerWalletAddress,
+        soldAt: updatedProperty.soldAt
+    });
+
+    res.status(200).json({
+        success: true,
+        message: 'Sale confirmed and property ownership transferred successfully.',
         property: updatedProperty
     });
 });
-
 // @desc    Get all registered properties
 // @route   GET /api/properties/all
 // @access  Private/Verifier

@@ -1206,121 +1206,144 @@ const PropertyDetails = () => { // Renamed component
     // --- End Wallet Connection Logic ---
 
     // --- THIS FUNCTION HANDLES THE DIRECT PURCHASE (NO ESCROW) ---
-    const handleDirectPurchase = async () => {
-        let currentWallet = userWallet;
-        if (!currentWallet) {
-            currentWallet = await connectWallet();
-            if (!currentWallet) return; // Stop if wallet connection fails/rejected
+// --- DIRECT PURCHASE: Database listed_for_sale → Pay with MetaMask → Sold ---
+const handleDirectPurchase = async () => {
+    let currentWallet = userWallet;
+    if (!currentWallet) {
+        currentWallet = await connectWallet();
+        if (!currentWallet) return;
+    }
+
+    if (!user || !user.token) {
+        setPurchaseStatus('Error: Please log in first.');
+        return;
+    }
+
+    if (!property || property.status !== 'listed_for_sale') {
+        setPurchaseStatus('Error: Property not available for purchase.');
+        return;
+    }
+
+    if (!property.tokenId) {
+        setPurchaseStatus('Error: Property Token ID is missing.');
+        return;
+    }
+
+    setPurchaseLoading(true);
+    setPurchaseStatus('Preparing purchase...');
+    setError(null);
+
+    try {
+        // --- 1. Connect to Blockchain ---
+        setPurchaseStatus("Connecting to blockchain...");
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        
+        console.log("📋 Purchase Details:");
+        console.log("  Token ID:", property.tokenId);
+        console.log("  Price:", property.price, "ETH");
+        console.log("  Seller:", property.ownerWalletAddress);
+        console.log("  Buyer:", currentWallet);
+
+        // --- 2. Send Payment to Seller ---
+        setPurchaseStatus('Action Required: Confirm payment in MetaMask...');
+        
+        const priceInWei = ethers.parseEther(property.price.toString());
+        
+        // Simple ETH transfer to seller
+        const tx = await signer.sendTransaction({
+            to: property.ownerWalletAddress, // Send money to current owner
+            value: priceInWei,
+            gasLimit: 21000 // Standard gas for ETH transfer
+        });
+
+        console.log("✅ Payment TX Sent:", tx.hash);
+        setPurchaseStatus('Payment sent! Waiting for confirmation...');
+
+        const receipt = await tx.wait(1);
+        console.log("✅ Payment TX Confirmed:", receipt);
+
+        if (receipt.status !== 1) {
+            throw new Error('Payment transaction failed on blockchain.');
         }
 
-        if (!user || !user.token) { setPurchaseStatus('Error: Please log in first.'); return; }
-        if (!property || property.status !== 'listed_for_sale' || !property.tokenId) {
-            setPurchaseStatus('Error: Property not available or Token ID missing.');
-            console.error("Purchase Pre-check Failed:", property); return;
-        }
+        // --- 3. Update Backend Database (listed_for_sale → sold) ---
+        setPurchaseStatus('Payment successful! Updating ownership...');
+        console.log("🔄 Calling backend /confirm-sale...");
 
-        setPurchaseLoading(true);
-        setPurchaseStatus('Preparing purchase...');
-        setError(null); // Clear page errors
-
-        const tokenId = Number(property.tokenId);
-
-        try {
-            // --- 1. Blockchain Interaction (Direct Buy) ---
-            setPurchaseStatus("Connecting to contract...");
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-            const network = await provider.getNetwork();
-            console.log("🌐 Connected to network:", network.name, "Chain ID:", network.chainId);
-
-            const marketplaceAddress = import.meta.env.VITE_MARKETPLACE_ADDRESS;
-            if (!marketplaceAddress) throw new Error("Marketplace address missing in .env");
-
-            const marketplaceContract = new ethers.Contract(marketplaceAddress, MarketplaceABI.abi, signer);
-            const priceInWei = ethers.parseEther(property.price.toString());
-
-            console.log(`Attempting purchase for Token ID: ${tokenId}, Price: ${property.price} ETH`);
-            setPurchaseStatus('Action Required: Confirm purchase in MetaMask...');
-
-            // --- CALL buyProperty (IMMEDIATE TRANSFER) ---
-            // Ensure this function name and arguments match your deployed contract
-            const tx = await marketplaceContract.buyProperty(tokenId, {
-                value: priceInWei
-            });
-            // --- END OF CONTRACT CALL ---
-
-            console.log("Purchase TX Sent:", tx.hash);
-            setPurchaseStatus('Transaction sent. Waiting for confirmation...');
-            const receipt = await tx.wait(1);
-            console.log("Purchase TX Confirmed:", receipt);
-
-            if (receipt.status !== 1) { // Check if transaction succeeded on-chain
-                throw new Error('Blockchain transaction failed. Check block explorer.');
-            }
-            // --- End Blockchain Interaction ---
-
-            // --- 2. Update Backend Database ---
-            setPurchaseStatus('Purchase successful! Updating server record...');
-            console.log("Calling backend /confirm-sale...");
-
-            // Use the '/confirm-sale' endpoint
-            const backendResponse = await fetch(`http://localhost:5000/api/properties/${id}/confirm-sale`, {
+        const backendResponse = await fetch(
+            `http://localhost:5000/api/properties/${id}/confirm-sale`,
+            {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user.token}` // Send JWT token
+                    'Authorization': `Bearer ${user.token}`
                 },
                 body: JSON.stringify({
                     transactionHash: receipt.hash,
-                    buyerWalletAddress: currentWallet // Send buyer wallet
-                 })
-            });
-
-            const backendData = await backendResponse.json();
-            if (!backendResponse.ok) {
-                // Important: Blockchain succeeded, DB failed. Needs manual fix/support message.
-                throw new Error(backendData.message || `Blockchain purchase successful (Tx: ${receipt.hash}), but backend update failed. Contact support.`);
+                    buyerWalletAddress: currentWallet
+                })
             }
+        );
 
-            // --- 3. Full Success: Update UI ---
-            setPurchaseStatus('Purchase completed successfully!');
-            // Update local state to reflect the sale
-            setProperty(prev => ({
-                 ...prev,
-                 status: 'sold',
-                 owner: user._id, // Update owner ID if available in user context
-                 ownerName: user?.name || 'New Owner (You)', // Update owner name
-                 ownerWalletAddress: currentWallet // Update wallet
-             }));
+        const backendData = await backendResponse.json();
 
-        } catch (err) {
-            console.error('Direct Purchase Error:', err);
-            let userMessage = `Purchase failed: ${err.message || 'Unknown error'}`;
-             if (err.code === 4001 || err.code === 'ACTION_REJECTED') userMessage = "Transaction rejected in MetaMask.";
-             else if (err.reason) userMessage = `Transaction failed: ${err.reason}`; // Contract revert reason
-             else if (err.message?.includes("insufficient funds")) userMessage = "Purchase failed: Insufficient funds.";
-             else if (err.code === 'CALL_EXCEPTION') {
-                 // Try to provide a more specific reason for call exceptions
-                 if (err.message?.includes("not listed") || err.message?.includes("listing is not active")) {
-                     userMessage = `Purchase failed: Property (Token ID ${tokenId}) is not actively listed on the blockchain. The seller may need to list it, or it might have been sold.`;
-                 } else if (err.message?.includes("caller is not owner")) {
-                      userMessage = `Purchase failed: You cannot buy your own property.`; // Example
-                 } else if (err.message?.includes("already sold")) {
-                      userMessage = `Purchase failed: This property has already been sold.`; // Example
-                 } else {
-                     userMessage = `Transaction simulation failed. Possible contract issue or incorrect state. Details: ${err.shortMessage || err.message}`;
-                 }
-             }
-            setError(userMessage); // Set page error
-            setPurchaseStatus(`Error: ${userMessage}`); // Set status message
-            // No alert needed, status message shows error
-        } finally {
-            setPurchaseLoading(false);
-            // Keep status message visible longer on error
-            const delay = error ? 10000 : 5000;
-            setTimeout(() => setPurchaseStatus(''), delay);
+        if (!backendResponse.ok) {
+            console.error("Backend update failed:", backendData);
+            throw new Error(
+                `Payment successful (TX: ${receipt.hash}), but database update failed: ${backendData.message || 'Unknown error'}. Please contact support with this transaction hash.`
+            );
         }
-    };
+
+        // --- 4. Success! Update UI ---
+        console.log("✅ Purchase completed successfully!");
+        setPurchaseStatus('🎉 Purchase completed! You are now the owner!');
+        
+        setProperty(prev => ({
+            ...prev,
+            status: 'sold',
+            owner: user._id,
+            ownerName: user?.name || 'You',
+            ownerWalletAddress: currentWallet,
+            soldAt: new Date(),
+            soldPrice: property.price,
+            previousOwner: prev.owner // Keep track of previous owner
+        }));
+
+    } catch (err) {
+        console.error('❌ Purchase Error:', err);
+
+        let userMessage = 'Purchase failed: ';
+
+        // User-friendly error messages
+        if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
+            userMessage = "Transaction cancelled in MetaMask.";
+        } else if (err.message?.includes("insufficient funds")) {
+            userMessage = `Insufficient funds. You need ${property.price} ETH plus gas fees.`;
+        } else if (err.code === 'NETWORK_ERROR') {
+            userMessage = "Network error. Please check your internet connection.";
+        } else if (err.message?.includes("database update failed")) {
+            userMessage = err.message; // Show our custom backend error
+        } else if (err.shortMessage) {
+            userMessage += err.shortMessage;
+        } else {
+            userMessage += err.message || 'Unknown error occurred.';
+        }
+
+        setError(userMessage);
+        setPurchaseStatus(`❌ ${userMessage}`);
+
+    } finally {
+        setPurchaseLoading(false);
+        
+        // Clear status after delay (longer if error)
+        setTimeout(() => {
+            setPurchaseStatus('');
+        }, error ? 10000 : 6000);
+    }
+};
+
+    
     // --- END OF DIRECT PURCHASE FUNCTION ---
 
     // --- Helper Functions ---
