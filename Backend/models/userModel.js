@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
   walletAddress: { type: String, required: true, unique: true },
   role: { 
     type: String, 
-    enum: ['Buyer', 'Owner', 'Verifier', 'Government'], 
+    enum: ['Buyer', 'Owner', 'Verifier'], 
     default: 'Buyer' 
   },
   kycStatus: {

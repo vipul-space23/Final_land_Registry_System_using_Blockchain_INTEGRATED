@@ -47,7 +47,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // --- Static File Serving ---
-
+``
 // This serves the 'uploads' folder for KYC documents
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 

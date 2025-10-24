@@ -124,72 +124,206 @@ export const preparePropertyRegistration = asyncHandler(async (req, res) => {
   }
 });
 
+// export const finalizePropertyRegistration = asyncHandler(async (req, res) => {
+//   const { transactionHash, propertyData } = req.body;
+
+//   if (!transactionHash || !propertyData) {
+//     return res.status(400).json({ success: false, message: 'Missing transactionHash or propertyData.' });
+//   }
+
+//   const provider = new ethers.JsonRpcProvider(process.env.GANACHE_URL || process.env.RPC_URL);
+  
+//   const receipt = await provider.waitForTransaction(transactionHash);
+  
+//   if (receipt.status === 0) {
+//     throw new Error('Blockchain transaction failed.');
+//   }
+
+//   let tokenId;
+//   const contractInterface = new ethers.Interface(PropertyTitleABI.abi);
+  
+//   for (const log of receipt.logs) {
+//     try {
+//       const parsedLog = contractInterface.parseLog({
+//         topics: [...log.topics],
+//         data: log.data
+//       });
+      
+//       if (parsedLog && parsedLog.name === 'TitleMinted') {
+//         tokenId = parsedLog.args.tokenId.toString();
+//         break;
+//       }
+//     } catch (e) {
+//       // Ignore logs that don't match the ABI
+//     }
+//   }
+
+//   if (!tokenId) {
+//     throw new Error('Could not find TitleMinted event in the transaction receipt.');
+//   }
+
+//   const propertyOwner = await User.findOne({ walletAddress: propertyData.ownerWalletAddress });
+//   if (!propertyOwner) {
+//     return res.status(404).json({ success: false, message: 'Property owner not found.' });
+//   }
+
+//   const newProperty = new Property({
+//     tokenId,
+//     transactionHash,
+//     surveyNumber: propertyData.surveyNumber,
+//     propertyId: propertyData.propertyId, // This should be propertyPID
+//     propertyAddress: propertyData.propertyAddress,
+//     district: propertyData.district,
+//     area: parseInt(propertyData.area),
+//     ownerWalletAddress: propertyData.ownerWalletAddress,
+//     ownerName: propertyData.ownerName,
+//     documentHashes: propertyData.documentHashes,
+//     status: 'pending',
+//     owner: propertyOwner._id,
+//     verifier: req.user._id,
+//   });
+
+//   await newProperty.save();
+
+//   res.status(201).json({
+//     success: true,
+//     message: 'Property registration finalized and saved to database!',
+//     data: { tokenId, propertyId: propertyData.propertyId, transactionHash }
+//   });
+// });
 export const finalizePropertyRegistration = asyncHandler(async (req, res) => {
   const { transactionHash, propertyData } = req.body;
 
   if (!transactionHash || !propertyData) {
-    return res.status(400).json({ success: false, message: 'Missing transactionHash or propertyData.' });
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Missing transactionHash or propertyData.' 
+    });
   }
 
-  const provider = new ethers.JsonRpcProvider(process.env.GANACHE_URL || process.env.RPC_URL);
-  
-  const receipt = await provider.waitForTransaction(transactionHash);
-  
-  if (receipt.status === 0) {
-    throw new Error('Blockchain transaction failed.');
-  }
-
-  let tokenId;
-  const contractInterface = new ethers.Interface(PropertyTitleABI.abi);
-  
-  for (const log of receipt.logs) {
-    try {
-      const parsedLog = contractInterface.parseLog({
-        topics: [...log.topics],
-        data: log.data
+  try {
+    const provider = new ethers.JsonRpcProvider(
+      process.env.GANACHE_URL || process.env.RPC_URL
+    );
+    
+    // Wait for transaction with timeout
+    const receipt = await Promise.race([
+      provider.waitForTransaction(transactionHash),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Transaction timeout')), 60000)
+      )
+    ]);
+    
+    if (!receipt) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Transaction receipt not found. Please check the transaction hash.' 
       });
-      
-      if (parsedLog && parsedLog.name === 'TitleMinted') {
-        tokenId = parsedLog.args.tokenId.toString();
-        break;
-      }
-    } catch (e) {
-      // Ignore logs that don't match the ABI
     }
+    
+    if (receipt.status === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Transaction failed on blockchain. Please try again.' 
+      });
+    }
+
+    let tokenId;
+    const contractInterface = new ethers.Interface(PropertyTitleABI.abi);
+    
+    // Try to find the TitleMinted event
+    for (const log of receipt.logs) {
+      try {
+        const parsedLog = contractInterface.parseLog({
+          topics: [...log.topics],
+          data: log.data
+        });
+        
+        if (parsedLog && parsedLog.name === 'TitleMinted') {
+          tokenId = parsedLog.args.tokenId.toString();
+          break;
+        }
+      } catch (e) {
+        // Continue checking other logs
+        continue;
+      }
+    }
+
+    // Better error handling when tokenId is not found
+    if (!tokenId) {
+      console.error('Transaction receipt logs:', JSON.stringify(receipt.logs, null, 2));
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Could not verify property minting. The transaction completed but the TitleMinted event was not found. Please contact support with transaction hash: ' + transactionHash,
+        transactionHash,
+        debugInfo: {
+          logsCount: receipt.logs.length,
+          contractAddress: process.env.PROPERTYTITLE_ADDRESS
+        }
+      });
+    }
+
+    // Check if property owner exists
+    const propertyOwner = await User.findOne({ 
+      walletAddress: propertyData.ownerWalletAddress 
+    });
+    
+    if (!propertyOwner) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Property owner not found in database. Please ensure the owner is registered.' 
+      });
+    }
+
+    // Create new property record
+    const newProperty = new Property({
+      tokenId,
+      transactionHash,
+      surveyNumber: propertyData.surveyNumber,
+      propertyId: propertyData.propertyId,
+      propertyAddress: propertyData.propertyAddress,
+      district: propertyData.district,
+      area: parseInt(propertyData.area),
+      ownerWalletAddress: propertyData.ownerWalletAddress,
+      ownerName: propertyData.ownerName,
+      documentHashes: propertyData.documentHashes,
+      status: 'pending',
+      owner: propertyOwner._id,
+      verifier: req.user._id,
+    });
+
+    await newProperty.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Property registration finalized and saved to database!',
+      data: { 
+        tokenId, 
+        propertyId: propertyData.propertyId, 
+        transactionHash 
+      }
+    });
+
+  } catch (error) {
+    console.error('Error finalizing property registration:', error);
+    
+    // Send user-friendly error messages
+    let errorMessage = 'Failed to finalize property registration. ';
+    
+    if (error.message.includes('timeout')) {
+      errorMessage += 'The transaction is taking too long. Please check your blockchain connection.';
+    } else if (error.message.includes('network')) {
+      errorMessage += 'Network error. Please check your internet connection.';
+    } else {
+      errorMessage += error.message;
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
-
-  if (!tokenId) {
-    throw new Error('Could not find TitleMinted event in the transaction receipt.');
-  }
-
-  const propertyOwner = await User.findOne({ walletAddress: propertyData.ownerWalletAddress });
-  if (!propertyOwner) {
-    return res.status(404).json({ success: false, message: 'Property owner not found.' });
-  }
-
-  const newProperty = new Property({
-    tokenId,
-    transactionHash,
-    surveyNumber: propertyData.surveyNumber,
-    propertyId: propertyData.propertyId, // This should be propertyPID
-    propertyAddress: propertyData.propertyAddress,
-    district: propertyData.district,
-    area: parseInt(propertyData.area),
-    ownerWalletAddress: propertyData.ownerWalletAddress,
-    ownerName: propertyData.ownerName,
-    documentHashes: propertyData.documentHashes,
-    status: 'pending',
-    owner: propertyOwner._id,
-    verifier: req.user._id,
-  });
-
-  await newProperty.save();
-
-  res.status(201).json({
-    success: true,
-    message: 'Property registration finalized and saved to database!',
-    data: { tokenId, propertyId: propertyData.propertyId, transactionHash }
-  });
 });
 
 // --- User Document Verification Workflow ---
