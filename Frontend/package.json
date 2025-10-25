@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.12",
+    "@turf/area": "^7.2.0",
+    "@turf/centroid": "^7.2.0",
     "dotenv": "^17.2.2",
     "ether": "^0.0.9",
     "ethers": "^6.15.0",

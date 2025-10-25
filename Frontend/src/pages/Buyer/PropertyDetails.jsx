@@ -1431,6 +1431,7 @@ const handleDirectPurchase = async () => {
                                          latitude={property.latitude}
                                          longitude={property.longitude}
                                          address={property.propertyAddress}
+                                         geometry={property.geometry}
                                      />
                                 </Section>
                                 <Section title="Verifiable Documents" icon={<FileText className="w-6 h-6 mr-2 text-blue-600" />}>

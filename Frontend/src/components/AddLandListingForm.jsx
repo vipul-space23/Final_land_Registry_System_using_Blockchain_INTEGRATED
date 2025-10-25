@@ -662,10 +662,15 @@ export default function AddLandListingForm({ selectedCoords, title, onFormVerifi
       setFeedback({ type: "success", message: result.message });
       
       // Call the callback to trigger step transition
-      if (onFormVerified) {
-        onFormVerified();
+     if (onFormVerified && result.data && result.data._id) {
+        onFormVerified(result.data._id);
+      } else {
+        // Fallback in case backend change wasn't made
+        onFormVerified(); 
+        console.error("Verification successful, but property ID was not returned from backend.");
       }
-    } catch (error) {
+    }
+      catch (error) {
       setFeedback({ type: "error", message: error.message });
     } finally {
       setIsLoading(false);
