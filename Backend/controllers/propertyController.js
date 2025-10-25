@@ -1609,3 +1609,47 @@ export const requestPurchase = asyncHandler(async (req, res) => {
     data: updatedProperty,
   });
 });
+
+// Add this function to your propertyController.js
+export const getMyPurchaseHistory = asyncHandler(async (req, res) => {
+    const userId = req.user._id; // Get user ID from protect middleware
+
+    try {
+        // Find properties where the current user is the 'owner'
+        // AND the status is 'sold' (or 'verified' if that's how you track ownership after purchase)
+        // Also, populate the 'previousOwner' (who was the seller)
+        const purchases = await Property.find({ owner: userId, status: { $in: ['sold', 'verified'] } })
+            .populate({
+                path: 'previousOwner', // Populate the seller details
+                select: 'name walletAddress' // Select only needed fields
+            })
+            // You might not need to populate 'propertyDetails' if it's not a separate ref
+            // .populate('propertyDetails') // Example if details were separate
+            .select('-documentHashes') // Exclude sensitive hashes
+            .sort({ soldAt: -1 }); // Sort by purchase date
+
+        // Map data to match frontend expectations (if needed)
+        const formattedPurchases = purchases.map(p => ({
+            transactionHash: p.transactionHash || `purchase_${p._id}`, // Use actual Tx hash or fallback
+            propertyDetails: { // Assuming details are directly on the property model
+                _id: p._id,
+                image: p.image,
+                propertyAddress: p.propertyAddress,
+                district: p.district,
+                area: p.area,
+                areaUnit: p.areaUnit,
+            },
+            tokenId: p.tokenId,
+            sellerDetails: p.previousOwner ? { name: p.previousOwner.name } : { name: 'Unknown Seller'},
+            seller: p.previousOwner ? p.previousOwner.walletAddress : 'N/A',
+            price: p.soldPrice || p.price, // Use soldPrice if available
+            timestamp: p.soldAt ? p.soldAt.getTime() : p.createdAt.getTime() // Use soldAt date
+        }));
+
+        res.status(200).json(formattedPurchases);
+
+    } catch (error) {
+        console.error("Error fetching purchase history:", error);
+        res.status(500).json({ message: "Failed to fetch purchase history", error: error.message });
+    }
+});

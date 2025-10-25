@@ -225,6 +225,7 @@ import {
     getMySoldProperties,
     getAllProperties,
     updatePropertyMapData, // <-- 1. Import new controller
+    getMyPurchaseHistory,
 } from '../controllers/propertyController.js';
 
 import { protect, isVerifier } from '../middlewares/authMiddleware.js';
@@ -269,7 +270,7 @@ router.post('/:id/prepare-listing', protect, prepareListingForSale);
 router.post('/:id/finalize-listing', protect, finalizeListingForSale);
 
 // --- SPECIFIC ROUTES BEFORE GENERIC :id ROUTES ---
-
+router.get('/my-purchases', protect, getMyPurchaseHistory);
 // Get user's own properties
 router.get('/my', protect, getMyProperties);
 
@@ -305,6 +306,8 @@ router.put(
 
 // --- Public Marketplace Route ---
 router.get('/marketplace', getMarketplaceProperties);
+
+
 
 // --- Protected Routes (Potentially Buyer or Seller depending on context) ---
 

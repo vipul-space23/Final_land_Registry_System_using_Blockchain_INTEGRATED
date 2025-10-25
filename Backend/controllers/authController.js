@@ -151,3 +151,39 @@ export const updateWalletAddress = asyncHandler(async (req, res) => {
       throw new Error('User not found');
   }
 });
+// ✅ --- NEW FUNCTION TO UPDATE PROFILE --- ✅
+/**
+ * @desc    Update user profile (name, email, phone)
+ * @route   PATCH /api/auth/profile
+ * @access  Private
+ */
+export const updateUserProfile = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id); // Get user ID from token payload
+
+    if (user) {
+        // Update fields if they are provided in the request body
+        user.name = req.body.name || user.name;
+        user.email = req.body.email || user.email;
+        user.phone = req.body.phone || user.phone; // Update phone
+
+        // Optional: Add validation for email format or phone number format here if needed
+
+        const updatedUser = await user.save();
+
+        // Respond with the updated user data (excluding sensitive info like nonce if any)
+        // You might want to generate a new token if email changes, depending on your auth strategy
+        res.json({
+            _id: updatedUser._id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            phone: updatedUser.phone,
+            walletAddress: updatedUser.walletAddress,
+            role: updatedUser.role,
+            kycStatus: updatedUser.kycStatus,
+            // token: updatedToken // If you regenerate token
+        });
+    } else {
+        res.status(404);
+        throw new Error('User not found');
+    }
+});
