@@ -121,145 +121,180 @@ Built for **Datta Meghe College of Engineering**, this academic prototype demons
                     │ (Pinata)    │   │  (Escrow)     │
                     └─────────────┘   └──────────────┘
 
+```
+## 🔄 User Flow
 
-📈 Data Flow:
+### ⚙️ Phase 1: Registration & Land Verification
 
-Users → System: Registration, document uploads, transaction requests
+#### 1️⃣ Land Seller Registration
+- Registers with **Aadhaar & PAN**  
+- Connects **MetaMask** wallet  
+- Submits verification request  
 
-System → Blockchain: NFT minting, ownership transfer
+#### 2️⃣ Land Inspector Verification
+- Views **pending verification requests**  
+- Checks **uploaded documents**  
+- Approves or rejects request  
+✅ On approval, email sent to seller: **“Profile Verified”**  
 
-System → IPFS: Document hash & storage
+#### 3️⃣ Property Registration (Demo Setup)
+- Land Inspector registers property for demo purposes  
+- Uploads required documents:  
+  - **Mother Deed (PDF)**  
+  - **Property Document (PDF)**  
+- Documents stored on **IPFS (Pinata)**  
+- Hash of documents generated and stored  
+- **NFT minted** on blockchain representing property  
+- Property record created (initially **not listed for sale**)  
 
-System → Users: Verification updates, NFT receipt
+#### 4️⃣ Seller Land Verification
+- Seller logs in and re-uploads the same property documents  
+- System **automatically generates hash** and compares with IPFS record  
+✅ If hash matches → verification successful  
+- Seller can then:  
+  - **List property** for sale (set price, upload images, edit details)  
+  - **Withdraw property** (remove from sale)  
 
-🔄 User Flow
-⚙️ Phase 1: Registration & Land Verification
-1️⃣ Land Seller Registration:
+---
 
-Registers with Aadhaar & PAN → connects MetaMask → submits verification request 2️⃣ Land Inspector Verification:
+### 🏠 Phase 2: Property Sale & Transfer
 
-Views pending requests → checks documents → approves/rejects
+#### 5️⃣ Buyer Browses Property Listings
+- Buyer logs in via **MetaMask**  
+- Views **verified property listings**  
+- Can filter by:  
+  - Price  
+  - Location  
+  - Size  
 
-✅ On approval, email sent to seller: “Profile Verified” 3️⃣ Property Registration (Demo Setup):
+#### 6️⃣ Purchase Request Flow
+- Buyer sends purchase request to seller  
+- Seller sees request in dashboard (**Requests section**)  
+- Seller can either:  
+  - **Accept** → enables smart contract transaction  
+  - **Reject** → request declined  
 
-Land Inspector registers property → uploads Mother Deed + Property Document
+#### 7️⃣ Smart Contract Transaction
+- Buyer deposits **ETH** into smart contract (Escrow)  
+- Land Inspector validates transaction (optional)  
+- Smart contract executes:  
+  - Transfers **NFT** to Buyer  
+  - Releases **ETH** to Seller  
+  - Updates blockchain ledger for ownership  
+🎉 Result: Buyer becomes **new verified property owner**  
 
-→ stored on IPFS (Pinata) → hash generated → NFT minted 4️⃣ Seller Land Verification:
+---
 
-Seller logs in → re-uploads same documents
+## 🚀 Installation
 
-→ system auto-generates hash → compares with IPFS
+### 🧩 Prerequisites
+- **Node.js** (v16+)  
+- **MongoDB**  
+- **MetaMask** browser extension  
+- **Pinata** (IPFS account)  
+- Ethereum test network (Sepolia / Goerli)  
 
-✅ Match = Verified → Seller can list/edit/withdraw property
+### 🛠️ Setup
 
-🏠 Phase 2: Property Sale & Transfer
-5️⃣ Buyer Browses Property Listings:
-
-Buyer logs in via MetaMask → views verified properties → filters by price/location 6️⃣ Purchase Request Flow:
-
-Buyer sends request → Seller sees notification → Accept / Reject
-
-✅ On Accept → Smart Contract enabled 7️⃣ Smart Contract Transaction:
-
-Buyer deposits ETH (Escrow) → Inspector validates →
-
-NFT transfers to Buyer → ETH sent to Seller → Ownership updated on blockchain 🎉 Result: Buyer becomes new verified property owner.
-
-🚀 Installation
-🧩 Prerequisites
-Node.js (v16+)
-
-MongoDB
-
-MetaMask Browser Extension
-
-Pinata (IPFS account)
-
-Ethereum Testnet (Sepolia / Goerli)
-
-🛠️ Setup
+```bash
 # Clone repository
-git clone [https://github.com/yourusername/smartregistry.git](https://github.com/yourusername/smartregistry.git)
+git clone https://github.com/yourusername/smartregistry.git
 cd smartregistry
 
-# Backend
+# Backend setup
 cd backend
 npm install
-cp .env.example .env  # Configure your MongoDB URI, Pinata Keys, etc.
+cp .env.example .env  # Configure MongoDB URI, Pinata Keys, etc.
 npm run dev
 
-# Frontend
+# Frontend setup
 cd ../frontend
 npm install
 npm start
 
-# Smart Contract
+# Smart contract deployment
 cd ../blockchain
 npx hardhat compile
 npx hardhat run scripts/deploy.js --network sepolia
+```
+## 📱 Usage
 
-📱 Usage
-User Role,Actions
-🧑‍💼 Land Sellers,"Register with Aadhaar/PAN, wait for verification, upload property docs, list/edit/withdraw properties, accept buyer offers."
-🧑‍💻 Land Buyers,"Connect MetaMask, browse verified land listings, send purchase requests, deposit ETH, receive property NFT."
-🕵️‍♂️ Land Inspectors,"Review user verification requests, register demo properties, approve/reject KYC, validate ownership transfers."
+### 🧑‍💼 Land Sellers
+- Register with **Aadhaar/PAN**  
+- Connect **MetaMask** wallet  
+- Wait for **inspector verification**  
+- Upload property documents for **hash verification**  
+- List property with **price, images, and details**  
+- Accept or reject **buyer requests**  
+- Receive **ETH automatically** upon sale  
 
-📜 Smart Contract Details
-⚙️ Key Functions
-mintPropertyNFT() → Create NFT for verified property
+### 🧑‍💻 Land Buyers
+- Connect **MetaMask** wallet  
+- Browse **verified property listings**  
+- Filter properties by **price, location, or size**  
+- Send **purchase request** to seller  
+- Deposit **ETH** to smart contract (Escrow)  
+- Receive **NFT ownership** after successful transaction  
 
-listProperty() → List property for sale
+### 🕵️‍♂️ Land Inspectors
+- Review **pending user verification requests**  
+- Approve or reject based on **document authenticity**  
+- Register **demo properties** for testing  
+- Validate **ownership transfers** before finalization  
 
-purchaseProperty() → Buyer escrow + NFT transfer
+---
 
-transferOwnership() → Finalize ownership
+## 📜 Smart Contract Details
 
-verifyDocumentHash() → Compare IPFS hashes
+### ⚙️ Key Functions
+- `mintPropertyNFT()` → Create NFT for verified property  
+- `listProperty()` → List property for sale  
+- `purchaseProperty()` → Buyer escrow + NFT transfer  
+- `transferOwnership()` → Finalize ownership  
+- `verifyDocumentHash()` → Compare IPFS document hashes  
 
-🛡️ Security Features
-Reentrancy guard
+### 🛡️ Security Features
+- Reentrancy guard to prevent attacks  
+- Escrow mechanism for secure payments  
+- Role-based access control (Inspector/Seller/Buyer)  
+- Emergency pause functionality  
 
-Escrow contract for payment safety
+---
 
-Role-based access (inspector/seller/buyer)
+## 🔮 Future Enhancements
+- 🔗 Multi-chain support (Polygon, BSC)  
+- 💰 Fractional ownership NFTs for co-ownership  
+- 🤖 AI-based document forgery detection  
+- ⚖️ Property valuation oracles  
+- 📱 Mobile Application (React Native)  
+- 🏛️ Integration with Government Land Registries  
+- 🌍 Multi-language user interface  
 
-Emergency pause functionality
+---
 
-🔮 Future Enhancements
-🔗 Multi-chain support (Polygon, BSC)
+## 👥 Contributors
 
-💰 Fractional ownership NFTs
+| Name | Role | Contact |
+|------|------|--------|
+| 🧑‍💻 [Your Name] | Project Lead | [email@example.com] |
+| 👩‍💻 [Team Member 2] | Blockchain Developer | [email@example.com] |
+| 🧑‍🎨 [Team Member 3] | Frontend Developer | [email@example.com] |
+| 🧑‍🔧 [Team Member 4] | Backend Developer | [email@example.com] |
 
-🤖 AI-based document forgery detection
+---
 
-⚖️ Property valuation oracles
+## 📄 License
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
-📱 Mobile App (React Native)
+---
 
-🏛️ Integration with Govt. Registries
+## 🙏 Acknowledgments
+- 🏫 Datta Meghe College of Engineering (DMCE)  
+- 🎓 University of Mumbai  
+- 🧱 OpenZeppelin for smart contract libraries  
+- 🌐 Pinata (IPFS) for decentralized document storage  
+- 💡 Faculty guides and mentors for their guidance  
 
-🌍 Multi-language UI
+⭐ **Star this repository** if you find it useful!  
+💙 *Made with ❤️ by IT Department, DMCE.*
 
-👥 Contributors
-Name,Role,Contact
-🧑‍💻 [Your Name],Project Lead,[email@example.com]
-👩‍💻 [Team Member 2],Blockchain Developer,[email@example.com]
-🧑‍🎨 [Team Member 3],Frontend Developer,[email@example.com]
-🧑‍🔧 [Team Member 4],Backend Developer,[email@example.com]
-📄 License
-This project is licensed under the MIT License — see the LICENSE file for details.
-
-🙏 Acknowledgments
-🏫 Datta Meghe College of Engineering (DMCE), Airoli
-
-🎓 University of Mumbai
-
-🧱 OpenZeppelin for smart contract templates
-
-🌐 Pinata (IPFS) for decentralized storage support
-
-💡 Faculty guides and mentors for their valuable input
-
-⭐ Star this repository if you found it useful!
-
-💙 Made with passion by IT Department, DMCE.
